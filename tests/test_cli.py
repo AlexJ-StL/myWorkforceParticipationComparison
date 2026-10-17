@@ -4,6 +4,7 @@ tripwire for non-finite stats leakage."""
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 
@@ -105,7 +106,10 @@ def test_analysis_main_uses_allow_nan_false(
 
 def _mock_viz_pipeline(monkeypatch, synthetic_data, synthetic_stats) -> set:
     """Install fast doubles for all three builders, using real synthetic data."""
-    monkeypatch.setattr("labor_viz.build", lambda refresh=False: synthetic_data)
+    monkeypatch.setattr(
+        "labor_viz.build",
+        lambda refresh=False, bls_api_key=None: synthetic_data,
+    )
     monkeypatch.setattr("analysis.compute_stats", lambda data: synthetic_stats)
     seen: set = set()
 
@@ -165,7 +169,10 @@ def test_viz_main_refresh_passes_to_build(
     seen = {}
     monkeypatch.setattr(
         "labor_viz.build",
-        lambda refresh=False: (seen.update(refresh=refresh), synthetic_data)[1],
+        lambda refresh=False, bls_api_key=None: (
+            seen.update(refresh=refresh),
+            synthetic_data,
+        )[1],
     )
     _mock_viz_pipeline(monkeypatch, synthetic_data, synthetic_stats)
     outdir = tmp_path / "out"
@@ -180,7 +187,7 @@ def test_viz_main_fetch_failure_exits_with_systemexit(monkeypatch, tmp_path):
     """Pin: clean SystemExit(1) with 'Execution Error:' on fetch failures."""
     monkeypatch.setattr(
         "labor_viz.build",
-        lambda refresh=False: (_ for _ in ()).throw(
+        lambda refresh=False, bls_api_key=None: (_ for _ in ()).throw(
             FredFetchError("CIVPART", "HTTP 404")
         ),
     )
@@ -214,12 +221,8 @@ def test_synthetic_stats_pass_allow_nan_false(synthetic_stats):
     assert roundtrip["coverage"]["missing_periods"] == ["2025-10"]
 
 
-@pytest.mark.xfail(
-    reason="D5: zero denominators leak inf/nan into stats; fix in Phase 7"
-)
 def test_zero_denominator_does_not_leak_into_stats(synthetic_raw):
-    """If D5 guard is missing, zero denominators leak inf/nan into stats.
-    Expected red until Phase 7 (D5)."""
+    """D5: zero denominators must not leak inf/nan into stats (fixed by _safe_ratio)."""
     poisoned = dict(synthetic_raw)
     df = poisoned["LNU00000001"].copy()
     df.iloc[0] = 0.0
@@ -239,6 +242,10 @@ def test_zero_denominator_does_not_leak_into_stats(synthetic_raw):
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("BLS_API_KEY"),
+    reason="Requires BLS_API_KEY environment variable",
+)
 def test_analysis_cli_subprocess_writes_outputs(tmp_path):
     """Full integration using the real cached FRED files."""
     outdir = tmp_path / "out"
@@ -259,6 +266,10 @@ def test_analysis_cli_subprocess_writes_outputs(tmp_path):
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("BLS_API_KEY"),
+    reason="Requires BLS_API_KEY environment variable",
+)
 def test_viz_static_subprocess_writes_png(tmp_path):
     outdir = tmp_path / "out"
     result = subprocess.run(

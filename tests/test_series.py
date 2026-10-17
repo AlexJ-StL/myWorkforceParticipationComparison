@@ -8,24 +8,49 @@ import dataclasses
 import pytest
 
 import labor_data
-from series import ALL_SIDS, BY_SID, PALETTE, SERIES, SeriesSpec, sid
+from series import (
+    ALL_BLS_SIDS,
+    ALL_FRED_SIDS,
+    BLS_BY_SID,
+    BLS_SERIES,
+    BY_SID,
+    FRED_SERIES,
+    PALETTE,
+    SeriesSpec,
+    sid,
+)
 
 PALETTE_KEYS = {"bg", "grid", "muted", "men", "women", "total", "accent"}
 
 
-def test_series_sids_are_unique():
-    sids = [spec.sid for spec in SERIES]
+def test_fred_series_sids_are_unique():
+    sids = [spec.sid for spec in FRED_SERIES]
     duplicates = {s for s in sids if sids.count(s) > 1}
-    assert not duplicates, f"duplicate sids in catalog: {duplicates}"
+    assert not duplicates, f"duplicate sids in FRED catalog: {duplicates}"
 
 
-def test_by_sid_mirrors_series_tuple():
-    assert set(BY_SID) == {spec.sid for spec in SERIES}
-    assert len(BY_SID) == len(SERIES)
+def test_bls_series_sids_are_unique():
+    sids = [spec.sid for spec in BLS_SERIES]
+    duplicates = {s for s in sids if sids.count(s) > 1}
+    assert not duplicates, f"duplicate sids in BLS catalog: {duplicates}"
 
 
-def test_all_sids_preserves_catalog_order():
-    assert ALL_SIDS == tuple(spec.sid for spec in SERIES)
+def test_fred_by_sid_mirrors_series_tuple():
+    assert set(BY_SID) == {spec.sid for spec in FRED_SERIES}
+    assert len(BY_SID) == len(FRED_SERIES)
+
+
+def test_bls_by_sid_mirrors_series_tuple():
+    assert set(BLS_BY_SID) == {spec.sid for spec in BLS_SERIES}
+    assert len(BLS_BY_SID) == len(BLS_SERIES)
+
+
+def test_all_fred_sids_preserves_catalog_order():
+    assert ALL_FRED_SIDS == tuple(spec.sid for spec in FRED_SERIES)
+
+
+def test_all_bls_sids_preserves_catalog_order():
+    assert ALL_BLS_SIDS == tuple(spec.sid for spec in BLS_SERIES)
 
 
 @pytest.mark.parametrize(
@@ -36,7 +61,8 @@ def test_labor_data_mappings_resolve_in_catalog(mapping_name):
     """Every series labor_data wants must exist in the catalog."""
     mapping = getattr(labor_data, mapping_name)
     for series_id in mapping:
-        assert series_id in BY_SID, (
+        # Check both FRED and BLS catalogs
+        assert series_id in BY_SID or series_id in BLS_BY_SID, (
             f"{series_id} in {mapping_name} missing from catalog"
         )
 
@@ -77,7 +103,7 @@ def test_sid_total_earnings_nominal_is_ambiguous():
     in-repo callers, so the ambiguity is latent, not active."""
     matches = [
         spec.sid
-        for spec in SERIES
+        for spec in FRED_SERIES
         if spec.sex == "total" and spec.track == "earnings_nominal"
     ]
     assert matches == ["CES0500000003", "AHETPI", "LES1252881500Q"]
@@ -94,15 +120,26 @@ def test_sid_raises_for_absent_pairs(sex, track):
 
 
 def test_series_specs_are_frozen():
-    spec = SERIES[0]
+    spec = FRED_SERIES[0]
     with pytest.raises(dataclasses.FrozenInstanceError):
         spec.label = "mutated"  # type: ignore[misc]
 
 
-def test_specs_have_non_empty_metadata():
-    for spec in SERIES:
+def test_bls_series_specs_are_frozen():
+    spec = BLS_SERIES[0]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        spec.label = "mutated"  # type: ignore[misc]
+
+
+def test_fred_specs_have_non_empty_metadata():
+    for spec in FRED_SERIES:
         assert spec.sid and spec.label and spec.short and spec.units
         assert spec.seasonal in {"SA", "NSA"}
+
+
+def test_bls_specs_have_non_empty_metadata():
+    for spec in BLS_SERIES:
+        assert spec.sid and spec.label and spec.short and spec.units
 
 
 def test_population_series_are_not_seasonally_adjusted():

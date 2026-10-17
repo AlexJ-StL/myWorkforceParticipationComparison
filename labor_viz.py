@@ -12,6 +12,7 @@ Run ``pixi run viz`` to build all three.
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,7 +29,6 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import FancyBboxPatch
 from matplotlib.text import Text
 
-import os
 from analysis import col, compute_stats
 from fred_data import FredFetchError
 from labor_data import WorkforceData, build

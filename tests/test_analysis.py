@@ -651,6 +651,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "counts",
         "checks",
         "coverage",
+        "weekly_hours",
     }
     assert set(synthetic_stats["rates"]) == {"total", "men", "women"}
     assert set(synthetic_stats["regimes"]) == {"1948-2000", "2000-2019", "2019-2026"}
@@ -670,6 +671,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "implied_vs_published_men",
         "implied_vs_published_women",
     }
+    assert set(synthetic_stats["weekly_hours"]["series"]) == {"total", "men", "women"}
 
 
 def test_compute_stats_rates_match_the_monthly_frame(synthetic_stats, synthetic_data):
@@ -727,7 +729,7 @@ def test_compute_stats_implied_matches_published_on_synthetic_data(synthetic_sta
 
 def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
     coverage = synthetic_stats["coverage"]
-    assert coverage["series_count"] == 25
+    assert coverage["series_count"] == 27  # 25 FRED + 2 BLS
     assert coverage["missing_periods"] == ["2025-10"]
     assert coverage["monthly_span"] == "1948-01..2026-09"
     assert coverage["earnings_span"] == "1979-01..2026-04"
@@ -995,10 +997,48 @@ def render_stats() -> dict:
             },
         },
         "coverage": {
-            "series_count": 25,
+            "series_count": 27,
             "monthly_span": "1948-01..2026-09",
             "earnings_span": "1979-01..2026-04",
             "missing_periods": ["2025-10"],
+        },
+        "weekly_hours": {
+            "series": {
+                "men": {
+                    "first": 40.0,
+                    "first_date": "1948-01",
+                    "latest": 42.0,
+                    "latest_date": "2026-09",
+                    "change": 2.0,
+                    "change_pct": 5.0,
+                },
+                "women": {
+                    "first": 35.0,
+                    "first_date": "1948-01",
+                    "latest": 37.0,
+                    "latest_date": "2026-09",
+                    "change": 2.0,
+                    "change_pct": 5.7,
+                },
+                "total": {
+                    "first": 37.5,
+                    "first_date": "1948-01",
+                    "latest": 39.5,
+                    "latest_date": "2026-09",
+                    "change": 2.0,
+                    "change_pct": 5.3,
+                },
+            },
+            "ratios": {
+                "hours_ratio_men_women": {
+                    "first": 1.14,
+                    "first_date": "1948-01",
+                    "latest": 1.14,
+                    "latest_date": "2026-09",
+                    "change": 0.0,
+                    "slope_pp_per_year": 0.0,
+                },
+            },
         },
     }
 
@@ -1007,7 +1047,7 @@ def test_header_reports_generation_and_span(render_stats):
     text = analysis._header(render_stats)
     assert text.startswith("# U.S. Workforce Participation: Findings\n\n")
     assert "Generated " in text
-    assert "25 FRED series" in text
+    assert "27 FRED series and 2 BLS series" in text
     assert "1948-01..2026-09 monthly" in text
     assert "1979-01..2026-04 quarterly earnings" in text
     assert "October 2025" in text
@@ -1096,7 +1136,18 @@ def test_caveats_section_covers_the_known_limitations():
     assert "Correlation is not causation" in text
     assert "October 2025 is missing" in text
     assert "seasonally adjusted" in text
-    assert "full-time wage and salary workers" in text
+    assert "workers" in text
+    assert "BLS weekly hours" in text
+    assert "nonagricultural industries" in text
+
+
+def test_weekly_hours_section_numbers_and_framing(render_stats):
+    text = analysis._weekly_hours_section(render_stats)
+    assert "Men" in text
+    assert "Women" in text
+    assert "Total" in text
+    assert "Hours ratio (M/W)" in text
+    assert "+5.0%" in text or "5.0%" in text
 
 
 def test_render_report_assembles_all_sections_in_order(synthetic_stats):

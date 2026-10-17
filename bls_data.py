@@ -12,17 +12,14 @@ Network-level failures (DNS, timeouts, connection resets) propagate as
 
 from __future__ import annotations
 
-import io
 import time
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import cast, Any, TypedDict
+from typing import TypedDict
 
 import pandas as pd
 import requests
-
-from series import BY_SID
 
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "raw"
 BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -78,10 +75,10 @@ BLS_SERIES: tuple[BlsSeriesSpec, ...] = (
 )
 
 
-BLs_SERIES_DICT: dict[str, BlsSeriesSpec] = {spec.sid: spec for spec in BLS_SERIES}
+BLS_SERIES_DICT: dict[str, BlsSeriesSpec] = {spec.sid: spec for spec in BLS_SERIES}
 
 
-BLS_ALL_SIDS: tuple[str, ...] = tuple(BLBS_SERIES_DICT)
+BLS_ALL_SIDS: tuple[str, ...] = tuple(BLS_SERIES_DICT)
 
 
 def fetch_bls_series(
@@ -99,7 +96,7 @@ def fetch_bls_series(
         max_age_days: Maximum age of a cache hit before re-downloading.
         api_key: BLS API key. If None, use unauthenticated requests (rate limited).
     """
-    if sid not in BLBS_SERIES_DICT:
+    if sid not in BLS_SERIES_DICT:
         raise BlsFetchError(sid, "not in the BLS series catalog")
 
     path = CACHE_DIR / f"{sid}.json"
@@ -131,9 +128,14 @@ def fetch_bls_series(
     return series
 
 
-def fetch_all_bls_series(*, refresh: bool = False, api_key: str | None = None) -> dict[str, pd.Series]:
+def fetch_all_bls_series(
+    *, refresh: bool = False, api_key: str | None = None
+) -> dict[str, pd.Series]:
     """Fetch every BLS series in the catalog."""
-    return {sid: fetch_bls_series(sid, refresh=refresh, api_key=api_key) for sid in BLS_ALL_SIDS}
+    return {
+        sid: fetch_bls_series(sid, refresh=refresh, api_key=api_key)
+        for sid in BLS_ALL_SIDS
+    }
 
 
 def clear_bls_cache() -> None:
@@ -182,7 +184,9 @@ def _parse_bls(text: str, sid: str) -> pd.Series:
         df = df.sort_values("date")
 
         # Set date as index and return Series
-        return pd.Series(df["value"].values, index=pd.DatetimeIndex(df["date"]), name=sid)
+        return pd.Series(
+            df["value"].values, index=pd.DatetimeIndex(df["date"]), name=sid
+        )
 
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         raise BlsFetchError(sid, f"unparseable response: {exc}") from exc

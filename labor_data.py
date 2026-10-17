@@ -18,7 +18,6 @@ from dataclasses import dataclass
 import pandas as pd
 
 import fred_data
-import bls_data
 from series import BY_SID
 
 MONTHLY_COLUMNS: dict[str, str] = {

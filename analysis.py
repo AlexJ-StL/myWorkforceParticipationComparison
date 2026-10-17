@@ -48,7 +48,13 @@ def compute_stats(data: WorkforceData) -> dict:
     monthly = data.monthly
     quarterly = data.quarterly
 
-    stats: dict = {"rates": {}, "gap": {}, "regimes": {}, "covid": {}, "weekly_hours": {}}
+    stats: dict = {
+        "rates": {},
+        "gap": {},
+        "regimes": {},
+        "covid": {},
+        "weekly_hours": {},
+    }
 
     for name, column in RATE_COLUMNS.items():
         stats["rates"][name] = _series_summary(col(monthly, column))
@@ -429,7 +435,9 @@ def _weekly_hours_stats(monthly: pd.DataFrame) -> dict:
     ):
         series = col(monthly, column).dropna()
         if series.empty:
-            raise EmptySeriesError(f"weekly hours series '{label}' has no observed values")
+            raise EmptySeriesError(
+                f"weekly hours series '{label}' has no observed values"
+            )
 
         stats["series"][label] = {
             "first": float(series.iloc[0]),
@@ -440,7 +448,10 @@ def _weekly_hours_stats(monthly: pd.DataFrame) -> dict:
             "change_pct": float((series.iloc[-1] / series.iloc[0] - 1) * 100),
         }
 
-    if "weekly_hours_men" in monthly.columns and "weekly_hours_women" in monthly.columns:
+    if (
+        "weekly_hours_men" in monthly.columns
+        and "weekly_hours_women" in monthly.columns
+    ):
         men_series = col(monthly, "weekly_hours_men").dropna()
         women_series = col(monthly, "weekly_hours_women").dropna()
         if not men_series.empty and not women_series.empty:

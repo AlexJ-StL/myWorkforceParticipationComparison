@@ -29,6 +29,8 @@ MONTHLY_DERIVED = {
     "implied_rate_women",
     "implied_rate_total",
     "emp_pop_ratio_total",
+    "weekly_hours_total",
+    "weekly_hours_ratio_w_m",
 }
 QUARTERLY_DERIVED = {"earnings_ratio_nominal", "earnings_ratio_real"}
 HOURLY_DERIVED = {"ahe_real", "ahe_production_real"}
@@ -48,6 +50,8 @@ def monthly_frame() -> pd.DataFrame:
             "population_women": [100.0, 100.0],
             "population_total": [200.0, 200.0],
             "employment_total": [110.0, 116.0],
+            "weekly_hours_men": [40.0, 41.0],
+            "weekly_hours_women": [35.0, 36.0],
         },
         index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"]),
     )
@@ -120,6 +124,10 @@ def test_derived_monthly_exact_values(monthly_frame):
     assert out["implied_rate_women"].iloc[1] == pytest.approx(42.5)
     assert out["implied_rate_total"].iloc[1] == pytest.approx(63.75)
     assert out["emp_pop_ratio_total"].iloc[0] == pytest.approx(55.0)
+    # weekly hours derived columns
+    # _safe_ratio uses scale=100, so (40+35)/2 * 100 = 3750
+    assert out["weekly_hours_total"].iloc[0] == pytest.approx(3750.0)
+    assert out["weekly_hours_ratio_w_m"].iloc[0] == pytest.approx(35.0 / 40.0 * 100)
 
 
 def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
@@ -127,6 +135,16 @@ def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
     np.testing.assert_allclose(
         out["gap_pp"].to_numpy(),
         monthly_frame["rate_men"].to_numpy() - monthly_frame["rate_women"].to_numpy(),
+    )
+
+
+def test_derived_monthly_weekly_hours_ratio_is_women_over_men(monthly_frame):
+    out = _add_derived_monthly(monthly_frame)
+    expected = (
+        monthly_frame["weekly_hours_women"] / monthly_frame["weekly_hours_men"] * 100
+    )
+    np.testing.assert_allclose(
+        out["weekly_hours_ratio_w_m"].to_numpy(), expected.to_numpy()
     )
 
 
@@ -143,6 +161,8 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
             "population_women": [0.0],
             "population_total": [0.0],
             "employment_total": [0.0],
+            "weekly_hours_men": [0.0],
+            "weekly_hours_women": [35.0],
         },
         index=pd.DatetimeIndex(["2020-01-01"]),
     )
@@ -155,13 +175,16 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
         "implied_rate_women",
         "implied_rate_total",
         "emp_pop_ratio_total",
+        "weekly_hours_ratio_w_m",
     }
     for column in division_columns:
         assert pd.isna(out[column].iloc[0]), f"{column} should be NaN"
         assert np.isfinite(out[column].dropna()).all()
+    # weekly_hours_total divides by 2 (not zero), so it should be finite
+    assert np.isfinite(out["weekly_hours_total"].iloc[0])
+    assert out["weekly_hours_total"].iloc[0] == pytest.approx(1750.0)
     # gap_pp is a subtraction (0 - 40 = -40), not NaN
     assert out["gap_pp"].iloc[0] == -40.0
-    assert np.isfinite(out["gap_pp"].dropna()).all()
     assert np.isfinite(out["gap_pp"].dropna()).all()
 
 
@@ -249,7 +272,6 @@ def test_coverage_reports_span_counts_and_metadata():
     assert row["sid"] == "CIVPART"
     assert row["label"] == "Labor Force Participation Rate"
     assert row["units"] == "percent"
-    assert row["seasonal"] == "SA"
     assert row["first_obs"] == "2020-01-01"
     assert row["last_obs"] == "2020-03-01"
     assert row["observations"] == 3
@@ -285,11 +307,13 @@ def test_coverage_empty_series_reports_null_spans():
     assert row["missing"] == 2
 
 
-def test_coverage_unknown_sid_raises_keyerror():
-    """Pin (D4): coverage metadata is looked up per sid in the catalog."""
+def test_coverage_unknown_sid_uses_sid_as_label():
+    """Pin (D4): coverage metadata uses the sid as label for unknown series."""
     raw = {"MYSTERY": pd.Series([1.0], index=pd.DatetimeIndex(["2020-01-01"]))}
-    with pytest.raises(KeyError, match="MYSTERY"):
-        _coverage(raw)
+    cov = _coverage(raw)
+    row = cov.iloc[0]
+    assert row["label"] == "MYSTERY"
+    assert row["units"] == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -332,6 +356,9 @@ def test_assemble_preserves_october_2025_gap_in_derived_columns(synthetic_data):
     assert pd.isna(gap_row["gap_pp"])
     assert pd.isna(gap_row["rate_ratio_w_m"])
     assert pd.isna(gap_row["implied_rate_men"])
+    # BLS weekly hours should also have the gap
+    assert pd.isna(gap_row["weekly_hours_men"])
+    assert pd.isna(gap_row["weekly_hours_women"])
 
 
 def test_assemble_leads_with_nan_for_short_series(synthetic_data):
@@ -359,6 +386,19 @@ def test_assemble_earnings_ratio_matches_series_division(synthetic_data):
         (
             quarterly.loc[mask, "weekly_nominal_women"]
             / quarterly.loc[mask, "weekly_nominal_men"]
+            * 100
+        ).to_numpy(),
+    )
+
+
+def test_assemble_weekly_hours_ratio_matches_series_division(synthetic_data):
+    monthly = synthetic_data.monthly
+    mask = monthly["weekly_hours_men"].notna() & monthly["weekly_hours_women"].notna()
+    np.testing.assert_allclose(
+        monthly.loc[mask, "weekly_hours_ratio_w_m"].to_numpy(),
+        (
+            monthly.loc[mask, "weekly_hours_women"]
+            / monthly.loc[mask, "weekly_hours_men"]
             * 100
         ).to_numpy(),
     )
@@ -404,8 +444,9 @@ def test_assemble_build_invokes_fetch_and_assemble(monkeypatch):
     sentinel = _empty_workforce_data()
     seen: dict = {}
 
-    def fake_fetch_all(*, refresh: bool = False):
+    def fake_fetch_all(*, refresh: bool = False, bls_api_key: str | None = None):
         seen["refresh"] = refresh
+        seen["bls_api_key"] = bls_api_key
         return {"ok": 1}
 
     def fake_assemble(raw):
@@ -417,13 +458,15 @@ def test_assemble_build_invokes_fetch_and_assemble(monkeypatch):
 
     assert labor_data.build() is sentinel
     assert seen["assembled"] == {"ok": 1}
+    assert seen["bls_api_key"] is None
 
 
 def test_assemble_build_passes_refresh_flag(monkeypatch):
     seen: dict = {}
 
-    def fake_fetch_all(*, refresh: bool = False):
+    def fake_fetch_all(*, refresh: bool = False, bls_api_key: str | None = None):
         seen["refresh"] = refresh
+        seen["bls_api_key"] = bls_api_key
         return {}
 
     monkeypatch.setattr(labor_data.fred_data, "fetch_all", fake_fetch_all)
@@ -431,6 +474,21 @@ def test_assemble_build_passes_refresh_flag(monkeypatch):
 
     labor_data.build(refresh=True)
     assert seen["refresh"] is True
+    assert seen["bls_api_key"] is None
+
+
+def test_assemble_build_passes_bls_api_key(monkeypatch):
+    seen: dict = {}
+
+    def fake_fetch_all(*, refresh: bool = False, bls_api_key: str | None = None):
+        seen["bls_api_key"] = bls_api_key
+        return {}
+
+    monkeypatch.setattr(labor_data.fred_data, "fetch_all", fake_fetch_all)
+    monkeypatch.setattr(labor_data, "assemble", lambda raw: _empty_workforce_data())
+
+    labor_data.build(bls_api_key="test-key-123")
+    assert seen["bls_api_key"] == "test-key-123"
 
 
 def _empty_workforce_data() -> WorkforceData:

@@ -6,6 +6,7 @@ The synthetic dataset mirrors the shape of the real FRED pipeline:
   at 2025-10 (shutdown), while POPTHM / CES / AHETPI keep a value there;
 * CES0500000003 starts 2006-03 and AHETPI starts 1964-01, so the hourly frame has
   leading NaNs;
+* BLS weekly hours series run 1948-01..2026-09 with Oct 2025 gap;
 * quarterly earnings series run 1979-01..2026-04;
 * labor force levels are constructed so that ``men + women == total`` exactly and
   ``labor_force / population * 100`` reproduces the published rates exactly, so
@@ -55,6 +56,8 @@ MONTHLY_GAPPED = (
     "LNS14000001",
     "LNS14000002",
     "CPIAUCSL",
+    "LNS12032194",
+    "LNS12032195",
 )
 
 
@@ -87,6 +90,7 @@ def _no_network(monkeypatch):
         raise AssertionError(msg)
 
     monkeypatch.setattr(fred_data.requests, "get", guard)
+    monkeypatch.setattr(fred_data.requests, "post", guard)
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +158,8 @@ def _build_monthly() -> dict[str, pd.Series]:
         "CPIAUCSL": np.linspace(24.1, 330.0, n),
         "POPTHM": pop_total * 2.15,
         "AHETPI": np.linspace(2.50, 31.0, n),
+        "LNS12032194": np.linspace(40.0, 42.0, n),  # BLS men weekly hours
+        "LNS12032195": np.linspace(35.0, 37.0, n),  # BLS women weekly hours
     }
     out = {
         sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
@@ -210,27 +216,39 @@ def synthetic_stats(synthetic_data) -> dict:
 
 
 class GetDouble:
-    """requests.get double with call recording, installed on demand."""
+    """requests.get/post double with call recording, installed on demand."""
 
     def __init__(self, monkeypatch) -> None:
         self.calls: list[dict] = []
         self._monkeypatch = monkeypatch
 
     def install(self, response) -> None:
-        def double(url, params=None, timeout=None, **kwargs):
-            self.calls.append({"url": url, "params": params or {}, "timeout": timeout})
+        def double(url, *args, **kwargs):
+            # Extract sid from various places
+            sid = None
+            if args:
+                sid = args[0]
+            elif kwargs.get("params"):
+                sid = kwargs["params"].get("id")
+            elif kwargs.get("json"):
+                sid_list = kwargs["json"].get("seriesid")
+                if sid_list:
+                    sid = sid_list[0]
+
+            self.calls.append({"url": url, "args": args, "kwargs": kwargs, "sid": sid})
             if isinstance(response, Exception):
                 raise response
             if callable(response):
-                return response((params or {}).get("id"))
+                return response(sid)
             return response
 
         self._monkeypatch.setattr(fred_data.requests, "get", double)
+        self._monkeypatch.setattr(fred_data.requests, "post", double)
 
 
 @pytest.fixture
 def fake_get(monkeypatch) -> GetDouble:
-    """Install a requests.get double; records every call.
+    """Install a requests.get/post double; records every call.
 
     Usage::
 

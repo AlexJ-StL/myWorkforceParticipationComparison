@@ -14,15 +14,13 @@ from __future__ import annotations
 import io
 import json
 import time
-from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 import requests
 
-from series import BY_SID, BLS_BY_SID
+from series import BLS_BY_SID, BY_SID
 
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "raw"
 FRED_CSV_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv"
@@ -38,6 +36,7 @@ class FetchError(Exception):
         super().__init__(f"Failed to fetch {series_id}: {reason}")
         self.series_id = series_id
         self.reason = reason
+
 
 # Alias for backward compatibility with existing code that uses FredFetchError
 FredFetchError = FetchError
@@ -137,9 +136,7 @@ def fetch_bls_series(
     if api_key:
         payload["apikey"] = api_key
 
-    response = requests.post(
-        BLS_API_URL, json=payload, timeout=REQUEST_TIMEOUT_SECONDS
-    )
+    response = requests.post(BLS_API_URL, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
     if response.status_code != 200:
         raise FetchError(sid, f"HTTP {response.status_code}: {response.text}")
 
@@ -209,7 +206,9 @@ def _parse_bls_json(text: str, sid: str) -> pd.Series:
 
         df = df.sort_values("date")
 
-        return pd.Series(df["value"].values, index=pd.DatetimeIndex(df["date"]), name=sid)
+        return pd.Series(
+            df["value"].values, index=pd.DatetimeIndex(df["date"]), name=sid
+        )
 
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         raise FetchError(sid, f"unparseable response: {exc}") from exc
