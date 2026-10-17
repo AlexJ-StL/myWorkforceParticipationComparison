@@ -14,6 +14,9 @@ primarily the Current Population Survey (CPS) and Current Employment Statistics
 https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SID>
 ```
 
+**BLS Weekly Hours (optional)** — Two series on average weekly hours worked in non‑agricultural industries are also available directly from the BLS Public Data API v2.
+The catalog is declared in [`bls_data.py`](bls_data.py). To use these series, set the `BLS_API_KEY` environment variable to your BLS API key (optional; unauthenticated requests are rate‑limited).
+
 The catalog is declared in [`series.py`](../series.py). Each entry is a
 `SeriesSpec(sid, label, short, track, sex, units, seasonal)`.
 
@@ -23,62 +26,70 @@ The catalog is declared in [`series.py`](../series.py). Each entry is a
 
 | Frame | Cadence | Contents |
 |---|---|---|
-| `monthly` | Month-start (`MS`) | Participation, labor force, employment, population, unemployment, CPI, total population. |
-| `quarterly` | Quarter-start (`QS`) | Median usual weekly earnings (nominal and real, 1982–84 $) by gender. |
-| `hourly` | Month-start (`MS`) | Average hourly earnings (nominal) and their real (CPI-deflated) counterparts. |
+| `monthly` | Month‑start (`MS`) | Participation, labor force, employment, population, unemployment, CPI, total population. |
+| `quarterly` | Quarter‑start (`QS`) | Median usual weekly earnings (nominal and real, 1982–84 $) by gender. |
+| `hourly` | Month‑start (`MS`) | Average hourly earnings (nominal) and their real (CPI‑deflated) counterparts. |
 
 The frames are joined on a union index and sorted; series that start later
-introduce leading `NaN`s (for example `ahe_nominal` begins 2006-03).
+introduce leading `NaN`s (for example `ahe_nominal` begins 2006‑03).
 
 ## Series catalog
 
-All 25 series in `series.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
+All 27 series (25 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
+
+| SID | Origin | Label | Units | Freq | Seas. | Track | Sex |
+|---|---|---|---|---|---|---|---|
+| `CIVPART` | FRED | Labor Force Participation Rate | percent | monthly | SA | rate | total |
+| `LNS11300001` | FRED | Labor Force Participation Rate – Men | percent | monthly | SA | rate | men |
+| `LNS11300002` | FRED | Labor Force Participation Rate – Women | percent | monthly | SA | rate | women |
+| `CLF16OV` | FRED | Civilian Labor Force Level | thousands | monthly | SA | level | total |
+| `LNS11000001` | FRED | Civilian Labor Force Level – Men | thousands | monthly | SA | level | men |
+| `LNS11000002` | FRED | Civilian Labor Force Level – Women | thousands | monthly | SA | level | women |
+| `CNP16OV` | FRED | Civilian Noninstitutional Population | thousands | monthly | SA | level | total |
+| `LNU00000001` | FRED | Civilian Noninstitutional Population – Men | thousands | monthly | NSA | level | men |
+| `LNU00000002` | FRED | Civilian Noninstitutional Population – Women | thousands | monthly | NSA | level | women |
+| `CE16OV` | FRED | Employment Level | thousands | monthly | SA | level | total |
+| `LNS12000001` | FRED | Employment Level – Men | thousands | monthly | SA | level | men |
+| `LNS12000002` | FRED | Employment Level – Women | thousands | monthly | SA | level | women |
+| `UNRATE` | FRED | Unemployment Rate | percent | monthly | SA | rate | total |
+| `LNS14000001` | FRED | Unemployment Rate – Men | percent | monthly | SA | rate | men |
+| `LNS14000002` | FRED | Unemployment Rate – Women | percent | monthly | SA | rate | women |
+| `CES0500000003` | FRED | Average Hourly Earnings, Total Private (2006+) | dollars/hour | monthly | SA | earnings_nominal | total |
+| `AHETPI` | FRED | Average Hourly Earnings, Production & Nonsupervisory (1964+) | dollars/hour | monthly | SA | earnings_nominal | total |
+| `LES1252881500Q` | FRED | Median Usual Weekly Earnings (nominal) | dollars/week | quarterly | NSA | earnings_nominal | total |
+| `LES1252881800Q` | FRED | Median Usual Weekly Earnings (nominal) – Men | dollars/week | quarterly | NSA | earnings_nominal | men |
+| `LES1252882700Q` | FRED | Median Usual Weekly Earnings (nominal) – Women | dollars/week | quarterly | NSA | earnings_nominal | women |
+| `LES1252881600Q` | FRED | Median Usual Weekly Earnings (real, 1982–84 $) | dollars/week | quarterly | NSA | earnings_real | total |
+| `LES1252881900Q` | FRED | Median Usual Weekly Earnings (real, 1982–84 $) – Men | dollars/week | quarterly | NSA | earnings_real | men |
+| `LES1252882800Q` | FRED | Median Usual Weekly Earnings (real, 1982–84 $) – Women | dollars/week | quarterly | NSA | earnings_real | women |
+| `CPIAUCSL` | FRED | Consumer Price Index for All Urban Consumers | index | monthly | SA | price | total |
+| `POPTHM` | FRED | Total US Population | thousands | monthly | SA | level | total |
+
+### BLS Weekly Hours (optional)
 
 | SID | Label | Units | Freq | Seas. | Track | Sex |
-|---|---|---|---|---|---|---|
-| `CIVPART` | Labor Force Participation Rate | percent | monthly | SA | rate | total |
-| `LNS11300001` | Labor Force Participation Rate – Men | percent | monthly | SA | rate | men |
-| `LNS11300002` | Labor Force Participation Rate – Women | percent | monthly | SA | rate | women |
-| `CLF16OV` | Civilian Labor Force Level | thousands | monthly | SA | level | total |
-| `LNS11000001` | Civilian Labor Force Level – Men | thousands | monthly | SA | level | men |
-| `LNS11000002` | Civilian Labor Force Level – Women | thousands | monthly | SA | level | women |
-| `CNP16OV` | Civilian Noninstitutional Population | thousands | monthly | SA | level | total |
-| `LNU00000001` | Civilian Noninstitutional Population – Men | thousands | monthly | NSA | level | men |
-| `LNU00000002` | Civilian Noninstitutional Population – Women | thousands | monthly | NSA | level | women |
-| `CE16OV` | Employment Level | thousands | monthly | SA | level | total |
-| `LNS12000001` | Employment Level – Men | thousands | monthly | SA | level | men |
-| `LNS12000002` | Employment Level – Women | thousands | monthly | SA | level | women |
-| `UNRATE` | Unemployment Rate | percent | monthly | SA | rate | total |
-| `LNS14000001` | Unemployment Rate – Men | percent | monthly | SA | rate | men |
-| `LNS14000002` | Unemployment Rate – Women | percent | monthly | SA | rate | women |
-| `CES0500000003` | Average Hourly Earnings, Total Private (2006+) | dollars/hour | monthly | SA | earnings_nominal | total |
-| `AHETPI` | Average Hourly Earnings, Production & Nonsupervisory (1964+) | dollars/hour | monthly | SA | earnings_nominal | total |
-| `LES1252881500Q` | Median Usual Weekly Earnings (nominal) | dollars/week | quarterly | NSA | earnings_nominal | total |
-| `LES1252881800Q` | Median Usual Weekly Earnings (nominal) – Men | dollars/week | quarterly | NSA | earnings_nominal | men |
-| `LES1252882700Q` | Median Usual Weekly Earnings (nominal) – Women | dollars/week | quarterly | NSA | earnings_nominal | women |
-| `LES1252881600Q` | Median Usual Weekly Earnings (real, 1982–84 $) | dollars/week | quarterly | NSA | earnings_real | total |
-| `LES1252881900Q` | Median Usual Weekly Earnings (real, 1982–84 $) – Men | dollars/week | quarterly | NSA | earnings_real | men |
-| `LES1252882800Q` | Median Usual Weekly Earnings (real, 1982–84 $) – Women | dollars/week | quarterly | NSA | earnings_real | women |
-| `CPIAUCSL` | Consumer Price Index for All Urban Consumers | index | monthly | SA | price | total |
-| `POPTHM` | Total US Population | thousands | monthly | SA | level | total |
+|---|---|---|---|---|---|---|---|
+| `LNS12032194` | Average weekly hours worked in non‑agricultural industries – Men (16 years and over) | hours/week | monthly | SA | hours_per_week | men |
+| `LNS12032195` | Average weekly hours worked in non‑agricultural industries – Women (16 years and over) | hours/week | monthly | SA | hours_per_week | women |
 
 ### Observed spans
 
-Verified against the committed `data/raw/` cache:
+Verified against the committed `data/raw/` cache (including `data/raw/bls/` for the BLS series):
 
 | Group of series | First obs | Last obs |
 |---|---|---|
-| Assembled `monthly` frame | 1947-01 | 2026-09 |
-| CPS/BLS labor series (`CIVPART`, `CLF16OV`, `CE16OV`, `UNRATE`, `LNS…`, `CNP16OV`) | 1948-01 | 2026-09 |
-| Consumer price index (`CPIAUCSL`) | 1947-01 | 2026-09 |
-| Total population (`POPTHM`) | 1959-01 | 2026-08 |
-| Average hourly earnings, production (`AHETPI`) | 1964-01 | 2026-09 |
-| Average hourly earnings, total private (`CES0500000003`) | 2006-03 | 2026-09 |
-| Median weekly earnings (`LES…` quarterly) | 1979-01 | 2026-04 |
+| Assembled `monthly` frame | 1947‑01 | 2026‑09 |
+| CPS/BLS labor series (`CIVPART`, `CLF16OV`, `CE16OV`, `UNRATE`, `LNS…`, `CNP16OV`) | 1948‑01 | 2026‑09 |
+| Consumer price index (`CPIAUCSL`) | 1947‑01 | 2026‑09 |
+| Total population (`POPTHM`) | 1959‑01 | 2026‑08 |
+| Average hourly earnings, production (`AHETPI`) | 1964‑01 | 2026‑09 |
+| Average hourly earnings, total private (`CES0500000003`) | 2006‑03 | 2026‑09 |
+| Median weekly earnings (`LES…` quarterly) | 1979‑01 | 2026‑04 |
+| BLS weekly hours (`LNS12032194`, `LNS12032195`) | 1977‑01 | 2026‑09 |
 
 > **Why the monthly frame starts in 1947, not 1948.** The core labor series begin
-> in 1948-01, but `CPIAUCSL` begins in 1947-01. Because the frames are joined on
-> a union index, the assembled `monthly` frame starts in 1947-01. The report
+> in 1948‑01, but `CPIAUCSL` begins in 1947‑01. Because the frames are joined on
+> a union index, the assembled `monthly` frame starts in 1947‑01. The report
 > header reports this frame-level span.
 
 ### Series-ID ambiguity (`sid()`)
@@ -168,7 +179,7 @@ No CPS field work was conducted during the **2025 federal government
 shutdown**, so the survey series are missing **October 2025**. Verified against
 the cache:
 
-| Series | 2025-10 value |
+| Series | 2025‑10 value |
 |---|---|
 | CPS series (`CIVPART`, `LNS…`, `CLF16OV`, `CNP16OV`, `CE16OV`, `UNRATE`) | missing (empty field) |
 | `CPIAUCSL` | missing |
@@ -187,7 +198,7 @@ Handling rules:
 > missing that month". Strictly, the gap applies to the CPS series and
 > `CPIAUCSL`; `POPTHM`, `AHETPI`, and `CES0500000003` have values there. The
 > *derived* analysis columns (`gap_pp`, ratios, implied rates) are `NaN` at
-> 2025-10 because their CPS inputs are.
+> 2025‑10 because their CPS inputs are.
 
 ## Cache format
 
@@ -196,10 +207,10 @@ format is FRED's two-column CSV:
 
 ```csv
 observation_date,CIVPART
-2025-08-01,62.6
-2025-09-01,62.5
-2025-10-01,
-2025-11-01,62.4
+2025‑08‑01,62.6
+2025‑09‑01,62.5
+2025‑10‑01,
+2025‑11‑01,62.4
 ```
 
 - The first column is the observation date; the second is the value.
@@ -207,7 +218,7 @@ observation_date,CIVPART
   `fred_data._parse()` reads as `NaN`.
 - Only the second column is used; extra columns are ignored.
 - Cached files are considered fresh for **30 days** (`CACHE_MAX_AGE_DAYS`).
-- `data/raw/` is a committed deliverable so runs are reproducible offline.
+- `data/raw/` is a committed deliverable so analyses are reproducible offline.
 
 See [architecture.md](architecture.md#caching-model) for the caching state
 machine and [methodology.md](methodology.md) for how these columns are used.

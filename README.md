@@ -58,12 +58,21 @@ pixi run viz --refresh
   `matplotlib`, `plotly`, `pillow`, `pytest`).
 - **ffmpeg** — bundled through pixi; required for the animated **MP4**. If it is
   unavailable the animation silently falls back to a GIF.
+- **BLS API key (optional)** — If you want to include BLS weekly hours series in your analysis, set the `BLS_API_KEY` environment variable to your BLS API key.
+  The BLS data is retrieved from the BLS Public Data API v2. You can obtain a free API key from the [BLS Developer Portal](https://www.bls.gov/developers/).
+  The API key is optional; unauthenticated requests are rate-limited.
+
+> **Tip:** On macOS, set it in your shell profile: `export BLS_API_KEY=your_key_here`.
+> On Windows (PowerShell): `$env:BLS_API_KEY="your_key_here"
+> On Linux: `export BLS_API_KEY=your_key_here`
+
+Once set, the BLS data will be automatically included in the `pixi run fetch` and `pixi run analyze` commands.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `pixi run fetch` | Download every FRED series into `data/raw/` (cached 30 days). |
+| `pixi run fetch` | Download every FRED series into `data/raw/` (cached 30 days). Also downloads BLS weekly hours (if `BLS_API_KEY` is set) into `data/raw/bls/`. |
 | `pixi run analyze` | Regenerate `output/findings.md` + `output/summary.json`. |
 | `pixi run viz` | Build all three visuals in `output/`. |
 | `pixi run viz --static` | Only `output/twitter_hero.png` (1600×900). |
@@ -98,10 +107,12 @@ ships with the latest generated artifacts.
 .
 ├── series.py          # FRED catalog: series IDs, labels, units, PALETTE
 ├── fred_data.py       # FRED CSV client + local cache; FredFetchError
+├── bls_data.py        # BLS API v2 client + local cache; BlsFetchError
 ├── labor_data.py      # Assembles monthly / quarterly / hourly frames + coverage
 ├── analysis.py        # compute_stats() + findings renderer + CLI
 ├── labor_viz.py       # Static PNG, animated MP4/GIF, interactive HTML + CLI
 ├── data/raw/          # Cached FRED CSVs (committed)
+├── data/raw/bls/      # Cached BLS series (optional, if BLS_API_KEY is set)
 ├── output/            # Generated report, JSON, and visuals (committed)
 ├── tests/             # pytest suite (see docs/development.md)
 ├── docs/              # This documentation set
@@ -115,20 +126,23 @@ A full breakdown lives in [docs/architecture.md](docs/architecture.md).
 
 ## Data sources and caveats
 
-- **Source:** BLS/CPS and BLS/CES series retrieved from FRED. The complete
-  catalog (25 series) is documented in [docs/data.md](docs/data.md).
+- **Primary source:** BLS/CPS and BLS/CES series retrieved from FRED. The complete
+catalog (25 series) is documented in [docs/data.md](docs/data.md).
+- **Secondary source:** BLS weekly hours series (men and women) retrieved directly from the BLS Public Data API.
+  The catalog (2 series) is documented in [docs/data.md#bls-weekly-hours](docs/data.md#bls-weekly-hours).
+  To use these series, set the `BLS_API_KEY` environment variable (optional; unauthenticated requests are rate-limited).
 - **October 2025 is missing from the CPS series (and the CPI)** — no field work
-  was conducted during the 2025 federal government shutdown. The gap is retained
-  as `NaN` and annotated on the chart; it is **never interpolated**. (The
-  population and earnings-level series have a value for that month; see
-  [docs/data.md](docs/data.md#the-october-2025-gap).)
+during the 2025 federal government shutdown. The gap is retained
+as `NaN` and annotated on the chart; it is **never interpolated**. (The
+population and earnings-level series have a value for that month; see
+[docs/data.md](docs/data.md#the-october-2025-gap).)
 - **Participation rates are seasonally adjusted; the gender population levels
-  (`LNU…`) are not.** This is why implied and published rates differ in the
-  third decimal (documented in the report's consistency checks).
+(`LNU...`) are not.** This is why implied and published rates differ in the
+third decimal (documented in the report's consistency checks).
 - **Earnings are quarterly (since 1979) and cover full-time wage and salary
-  workers only**, so they cannot explain monthly movements.
+workers only**, so they cannot explain monthly movements.
 - **Correlation is not causation.** The earnings/participation alignment is a
-  descriptive association; no identification strategy is used.
+descriptive association; no identification strategy is used.
 
 See [docs/methodology.md](docs/methodology.md) for definitions and
 [docs/data.md](docs/data.md) for the catalog and coverage model.
