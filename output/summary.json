@@ -1,0 +1,286 @@
+{
+  "rates": {
+    "total": {
+      "first": 58.6,
+      "first_date": "1948-01",
+      "latest": 61.8,
+      "latest_date": "2026-09",
+      "peak": 67.3,
+      "peak_date": "2000-01",
+      "trough": 58.1,
+      "trough_date": "1954-12",
+      "change_since_first": 3.1999999999999957,
+      "change_since_peak": -5.5
+    },
+    "men": {
+      "first": 86.7,
+      "first_date": "1948-01",
+      "latest": 67.2,
+      "latest_date": "2026-09",
+      "peak": 87.4,
+      "peak_date": "1949-10",
+      "trough": 66.1,
+      "trough_date": "2020-04",
+      "change_since_first": -19.5,
+      "change_since_peak": -20.200000000000003
+    },
+    "women": {
+      "first": 32.0,
+      "first_date": "1948-01",
+      "latest": 56.7,
+      "latest_date": "2026-09",
+      "peak": 60.3,
+      "peak_date": "2000-04",
+      "trough": 32.0,
+      "trough_date": "1948-01",
+      "change_since_first": 24.700000000000003,
+      "change_since_peak": -3.5999999999999943
+    }
+  },
+  "gap": {
+    "first": 54.7,
+    "first_date": "1948-01",
+    "latest": 10.5,
+    "latest_date": "2026-09",
+    "peak": 54.7,
+    "peak_date": "1948-01",
+    "trough": 9.899999999999999,
+    "trough_date": "2026-03",
+    "change_since_first": -44.2,
+    "change_since_peak": -44.2,
+    "shrink_pp": 44.2
+  },
+  "regimes": {
+    "1948-2000": {
+      "rate_men": {
+        "slope_pp_per_year": -0.2483498385011645,
+        "r2": 0.9395381261750991
+      },
+      "rate_women": {
+        "slope_pp_per_year": 0.5955332983335612,
+        "r2": 0.9820125741634611
+      },
+      "rate_total": {
+        "slope_pp_per_year": 0.19413288454016805,
+        "r2": 0.9000914279388545
+      },
+      "gap_pp": {
+        "slope_pp_per_year": -0.8438831368347262,
+        "r2": 0.9894418067749814
+      }
+    },
+    "2000-2019": {
+      "rate_men": {
+        "slope_pp_per_year": -0.34922012534939806,
+        "r2": 0.9329922523069536
+      },
+      "rate_women": {
+        "slope_pp_per_year": -0.1822479556936744,
+        "r2": 0.8355465358342616
+      },
+      "rate_total": {
+        "slope_pp_per_year": -0.26063994166565396,
+        "r2": 0.906969541938614
+      },
+      "gap_pp": {
+        "slope_pp_per_year": -0.16697216965572317,
+        "r2": 0.8870506588055267
+      }
+    },
+    "2019-2026": {
+      "rate_men": {
+        "slope_pp_per_year": -0.14280262104106387,
+        "r2": 0.24692924936075278
+      },
+      "rate_women": {
+        "slope_pp_per_year": 0.07749787305197783,
+        "r2": 0.06963299695139669
+      },
+      "rate_total": {
+        "slope_pp_per_year": -0.025587618444444682,
+        "r2": 0.009292971157489949
+      },
+      "gap_pp": {
+        "slope_pp_per_year": -0.22030049409304117,
+        "r2": 0.7557413732250233
+      }
+    }
+  },
+  "covid": {
+    "total": {
+      "baseline_dec_2019": 63.3,
+      "trough": 60.1,
+      "trough_date": "2020-04",
+      "drop_pp": -3.1999999999999957,
+      "latest": 61.8,
+      "change_vs_baseline": -1.5,
+      "recovered": false,
+      "recovered_date": null,
+      "months_to_recover": null
+    },
+    "men": {
+      "baseline_dec_2019": 69.2,
+      "trough": 66.1,
+      "trough_date": "2020-04",
+      "drop_pp": -3.1000000000000085,
+      "latest": 67.2,
+      "change_vs_baseline": -2.0,
+      "recovered": false,
+      "recovered_date": null,
+      "months_to_recover": null
+    },
+    "women": {
+      "baseline_dec_2019": 57.8,
+      "trough": 54.6,
+      "trough_date": "2020-04",
+      "drop_pp": -3.1999999999999957,
+      "latest": 56.7,
+      "change_vs_baseline": -1.0999999999999943,
+      "recovered": true,
+      "recovered_date": "2024-08",
+      "months_to_recover": 52
+    }
+  },
+  "earnings": {
+    "series": {
+      "total": {
+        "nominal_first": 232.0,
+        "nominal_first_date": "1979-01",
+        "nominal_latest": 1258.0,
+        "nominal_latest_date": "2026-04",
+        "real_first": 335.0,
+        "real_latest": 378.0,
+        "real_change_pct": 12.8358208955224,
+        "nominal_change_pct": 442.2413793103448
+      },
+      "men": {
+        "nominal_first": 282.0,
+        "nominal_first_date": "1979-01",
+        "nominal_latest": 1380.0,
+        "nominal_latest_date": "2026-04",
+        "real_first": 408.0,
+        "real_latest": 414.0,
+        "real_change_pct": 1.4705882352941124,
+        "nominal_change_pct": 389.36170212765956
+      },
+      "women": {
+        "nominal_first": 174.0,
+        "nominal_first_date": "1979-01",
+        "nominal_latest": 1136.0,
+        "nominal_latest_date": "2026-04",
+        "real_first": 251.0,
+        "real_latest": 341.0,
+        "real_change_pct": 35.85657370517927,
+        "nominal_change_pct": 552.8735632183908
+      }
+    },
+    "ratios": {
+      "nominal": {
+        "first": 61.702127659574465,
+        "first_date": "1979-01",
+        "latest": 82.31884057971014,
+        "latest_date": "2026-04",
+        "change_pp": 20.616712920135676,
+        "slope_pp_per_year": 0.4123167506212037,
+        "r2": 0.8632149181787275
+      },
+      "real": {
+        "first": 61.51960784313726,
+        "first_date": "1979-01",
+        "latest": 82.3671497584541,
+        "latest_date": "2026-04",
+        "change_pp": 20.847541915316846,
+        "slope_pp_per_year": 0.4114925950722624,
+        "r2": 0.8636491665262728
+      }
+    },
+    "participation_alignment": {
+      "observations": 189,
+      "span": "1979-01..2026-04",
+      "corr_contemporaneous": -0.9730346799629318,
+      "best_lag_quarters": 8,
+      "corr_best_lag": -0.9758221986192044
+    }
+  },
+  "counts": {
+    "levels": {
+      "labor_force_total": {
+        "first": 60095.0,
+        "first_date": "1948-01",
+        "latest": 170262.0,
+        "latest_date": "2026-09",
+        "growth_multiple": 2.833214077710292
+      },
+      "labor_force_men": {
+        "first": 43214.0,
+        "first_date": "1948-01",
+        "latest": 89363.0,
+        "latest_date": "2026-09",
+        "growth_multiple": 2.0679178044152358
+      },
+      "labor_force_women": {
+        "first": 16881.0,
+        "first_date": "1948-01",
+        "latest": 80899.0,
+        "latest_date": "2026-09",
+        "growth_multiple": 4.79231088205675
+      },
+      "employment_total": {
+        "first": 58061.0,
+        "first_date": "1948-01",
+        "latest": 163152.0,
+        "latest_date": "2026-09",
+        "growth_multiple": 2.81001016172646
+      },
+      "population_16plus": {
+        "first": 102603.0,
+        "first_date": "1948-01",
+        "latest": 275554.0,
+        "latest_date": "2026-09",
+        "growth_multiple": 2.685632973694726
+      }
+    },
+    "shares": {
+      "women_lf_share": {
+        "first": 28.09052333804809,
+        "first_date": "1948-01",
+        "latest": 47.51441895431746,
+        "latest_date": "2026-09",
+        "change_pp": 19.423895616269373
+      },
+      "emp_pop_ratio_total": {
+        "first": 56.58801399569213,
+        "first_date": "1948-01",
+        "latest": 59.20872133955595,
+        "latest_date": "2026-09",
+        "change_pp": 2.6207073438638204
+      }
+    }
+  },
+  "checks": {
+    "labor_force_additivity": {
+      "max_abs_diff_thousands": 1.0,
+      "mean_abs_diff_thousands": 0.1038135593220339
+    },
+    "implied_vs_published_total": {
+      "mean_abs_diff_pp": 0.025513304403638182,
+      "max_abs_diff_pp": 0.0498828113109866
+    },
+    "implied_vs_published_men": {
+      "mean_abs_diff_pp": 0.024527645244186467,
+      "max_abs_diff_pp": 0.06907745734561388
+    },
+    "implied_vs_published_women": {
+      "mean_abs_diff_pp": 0.025375940813230687,
+      "max_abs_diff_pp": 0.21409462381353705
+    }
+  },
+  "coverage": {
+    "series_count": 25,
+    "monthly_span": "1947-01..2026-09",
+    "earnings_span": "1979-01..2026-04",
+    "missing_periods": [
+      "2025-10"
+    ]
+  }
+}

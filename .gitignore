@@ -1,0 +1,16 @@
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+.ruff_cache
+myWorkforceParticipationComparison
+
+# agent scratch files
+.kilo/
+
+# python
+__pycache__/
+*.py[cod]
+
+# IDE files
+myWorkforceParticipationComparison.code-workspace
+.coverage

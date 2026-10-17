@@ -1,0 +1,33 @@
+[workspace]
+channels = ["conda-forge"]
+name = "myWorkforceParticipationComparison"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+fmt = "ruff format"
+lint = "ruff check --fix"
+style = [{ task = "fmt" }, { task = "lint" }]
+fetch = "python -c \"import labor_data; labor_data.build()\""
+analyze = "python analysis.py"
+
+[tasks.viz]
+cmd = "python labor_viz.py --all"
+env = { MPLBACKEND = "Agg" }
+
+[tasks.test]
+cmd = "pytest -q"
+
+[tasks.test-cov]
+cmd = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_viz --cov=series --cov-report=term-missing"
+
+[dependencies]
+pandas = ">=3.0.6,<4"
+requests = ">=2.34.2,<3"
+matplotlib = ">=3.11.2,<4"
+ruff = ">=0.17.0,<0.18"
+plotly = ">=6.1,<7"
+pillow = ">=11,<12"
+ffmpeg = ">=7,<8"
+pytest = ">=9.1.1,<10"
+pytest-cov = ">=7.1.0,<8"
