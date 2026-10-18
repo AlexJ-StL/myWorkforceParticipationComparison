@@ -64,14 +64,14 @@ pixi run viz --refresh
 
 > **Tip:** On macOS, set it in your shell profile: `export BLS_API_KEY=your_key_here`.
 > On Windows (PowerShell): `$env:BLS_API_KEY="your_key_here"
-> On Linux: `export BLS_API_KEY=your_key_here`
+> On Linux:`export BLS_API_KEY=your_key_here`
 
 Once set, the BLS data will be automatically included in the `pixi run fetch` and `pixi run analyze` commands.
 
 ## Commands
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | `pixi run fetch` | Download every FRED series into `data/raw/` (cached 30 days). Also downloads BLS weekly hours (if `BLS_API_KEY` is set) into `data/raw/bls/`. |
 | `pixi run analyze` | Regenerate `output/findings.md` + `output/summary.json`. |
 | `pixi run viz` | Build all three visuals in `output/`. |
@@ -90,7 +90,7 @@ Any data-loading command accepts `--refresh`. See
 ## Outputs
 
 | File | Description |
-|---|---|
+| --- | --- |
 | `output/findings.md` | The written findings report (markdown). |
 | `output/summary.json` | Every computed statistic as strict JSON (`allow_nan=False`). |
 | `output/twitter_hero.png` | Static 1600×900 dark-theme hero chart. |
@@ -129,7 +129,7 @@ A full breakdown lives in [docs/architecture.md](docs/architecture.md).
 - **Primary source:** BLS/CPS and BLS/CES series retrieved from FRED. The complete
 catalog (25 series) is documented in [docs/data.md](docs/data.md).
 - **Secondary source:** BLS weekly hours series (men and women) retrieved directly from the BLS Public Data API.
-  The catalog (2 series) is documented in [docs/data.md#bls-weekly-hours](docs/data.md#bls-weekly-hours).
+  The catalog (2 series) is documented in [docs/data.md#bls-weekly-hours-optional](docs/data.md#bls-weekly-hours-optional).
   To use these series, set the `BLS_API_KEY` environment variable (optional; unauthenticated requests are rate-limited).
 - **October 2025 is missing from the CPS series (and the CPI)** — no field work
 during the 2025 federal government shutdown. The gap is retained
@@ -150,7 +150,7 @@ See [docs/methodology.md](docs/methodology.md) for definitions and
 ## Documentation
 
 | Document | Contents |
-|---|---|
+| --- | --- |
 | [docs/README.md](docs/README.md) | Documentation index. |
 | [docs/architecture.md](docs/architecture.md) | Pipeline stages, modules, data flow, error handling. |
 | [docs/data.md](docs/data.md) | FRED catalog, derived columns, coverage, cache format. |
