@@ -185,7 +185,7 @@ def _parse_bls_json(text: str, sid: str) -> pd.Series:
     """Parse BLS JSON API response into a pandas Series."""
     try:
         response_data = json.loads(text)
-        
+
         # Handle BLS API v2.0 response format
         # Response has: {"status": "REQUEST_SUCCEEDED", "Results": {"series": [...]}}
         if "Results" in response_data and "series" in response_data["Results"]:
@@ -195,7 +195,7 @@ def _parse_bls_json(text: str, sid: str) -> pd.Series:
             if "series" not in response_data or not response_data["series"]:
                 raise FetchError(sid, "no series data in response")
             series_data = response_data["series"]
-        
+
         if not series_data:
             raise FetchError(sid, "empty series array")
 

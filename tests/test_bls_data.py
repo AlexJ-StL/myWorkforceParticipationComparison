@@ -3,12 +3,13 @@
 import os
 from unittest.mock import patch
 
-import pandas as pd
 import pytest
+
 from bls_data import (
     BLS_ALL_SIDS,
     BLS_SERIES,
     BLS_SERIES_DICT,
+    BlsFetchError,
     BlsSeriesSpec,
     fetch_bls_series,
 )
@@ -122,7 +123,6 @@ class TestBLSData:
         """Test that BLS series spec check includes API key for security."""
         # This test ensures that the BLS series fetching function
         # has proper API key handling for security
-        pass
 
     def test_bls_series_api_key_in_environment(self):
         """Test that BLS API key can be read from environment variable."""
@@ -133,7 +133,6 @@ class TestBLSData:
     def test_bls_series_cache_file_format(self):
         """Test that BLS series cache files have the correct format."""
         # This test would verify that cached BLS files are in the correct JSON format
-        pass
 
     def test_bls_series_metadata_complete(self):
         """Test that BLS series metadata includes all required fields."""
@@ -173,5 +172,5 @@ class TestBLSData:
     def test_bls_series_fetch_error_handling(self):
         """Test that BLS series fetch handles errors properly."""
         # Test that invalid series IDs raise appropriate errors
-        with pytest.raises(Exception):  # Should be BlsFetchError
+        with pytest.raises(BlsFetchError):
             fetch_bls_series("INVALID_SID")
