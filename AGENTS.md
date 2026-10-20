@@ -17,7 +17,7 @@ plotly, pillow, ffmpeg, ruff. No system-level Python packages are used.
 ## Commands
 
 | Command | What it does |
-|---|---|
+| --- | --- |
 | pixi run fetch | Download every FRED series into data/raw/ (cached 30 days) |
 | pixi run analyze | Regenerate output/findings.md + output/summary.json |
 | pixi run viz | Build all three visuals in output/ |
@@ -36,7 +36,7 @@ re-download from FRED: pixi run analyze --refresh.
 ## Architecture
 
 | File | Role |
-|---|---|
+| --- | --- |
 | series.py | FRED series catalog: IDs, labels, units, colors (PALETTE) |
 | fred_data.py | FRED CSV client with a local cache; defines FredFetchError |
 | labor_data.py | Assembles monthly / quarterly / hourly frames + coverage |
@@ -46,6 +46,14 @@ re-download from FRED: pixi run analyze --refresh.
 analysis.compute_stats() is the single source of truth for every number
 that appears in the report **and** on the charts — never hardcode a figure
 into a visualization; read it from stats.
+
+## Shift-Share & Demographic Analysis Specifications
+
+- **New Modules/Functions:**
+  - `series.py`: Add catalog mappings for `CIVPART`, `LNS11300060` (Prime Total), `LNS11300061` (Prime Male), `LNS11300062` (Prime Female), `LNS11324230` (55+), and population series (`LNU00000012`, `LNU00000060`, `LNU00000242`).
+  - `analysis.py`: Add `calculate_shift_share(df_pop, df_lfpr, base_year=2000)` to decompose LFPR change into Within-Group (behavioral) and Between-Group (demographic aging) effects.
+  - `labor_viz.py`: Add dual-panel chart rendering (Headline vs. Prime-Age top panel; Shift-Share decomposition bottom panel).
+- **Data Rules:** Population shares $w_{i,t} = \text{Pop}_i / \text{Pop}_{\text{total}}$ must be computed on annual resampled means before matrix operations.
 
 ## Data notes
 
@@ -86,7 +94,7 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 ### Defect Register & Disposition
 
 | ID | Location | Defect | Disposition |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | D1 | fred_data._parse | Header-only/garbage-header CSV → silent empty Series | **FIXED**: strict validation |
 | D2 | fred_data.fetch_series | Corrupt cache → permanent failure | **FIXED**: auto re-download |
 | D3 | labor_data._frame | Missing sid → bare KeyError | **PINNED** (programming error) |
