@@ -227,6 +227,46 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
     ),
     # Total US population (monthly, SA) -- context only
     SeriesSpec("POPTHM", "Total US Population", "All", "level", "total", "thousands"),
+    # Age-disaggregated LFPR and population (monthly, SA) -- demographics expansion
+    SeriesSpec(
+        "LNS11300060", "Prime 25–54 LFPR", "Prime 25–54", "rate", "total", "percent"
+    ),
+    SeriesSpec(
+        "LNS11300061",
+        "Prime 25–54 Male LFPR",
+        "Prime 25–54 Men",
+        "rate",
+        "men",
+        "percent",
+    ),
+    SeriesSpec(
+        "LNS11300062",
+        "Prime 25–54 Female LFPR",
+        "Prime 25–54 Women",
+        "rate",
+        "women",
+        "percent",
+    ),
+    SeriesSpec("LNS11324230", "55+ LFPR", "Older 55+", "rate", "total", "percent"),
+    SeriesSpec(
+        "LNU00000012",
+        "Civilian Pop 16–24",
+        "Youth 16–24",
+        "level",
+        "total",
+        "thousands",
+    ),
+    SeriesSpec(
+        "LNU00000060",
+        "Civilian Pop 25–54",
+        "Prime 25–54",
+        "level",
+        "total",
+        "thousands",
+    ),
+    SeriesSpec(
+        "LNU00000242", "Civilian Pop 55+", "Older 55+", "level", "total", "thousands"
+    ),
 )
 
 

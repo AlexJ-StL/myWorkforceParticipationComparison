@@ -149,6 +149,7 @@ class HeroFigure:
         self._draw_chips()
         self._panel_a = self._build_panel_a()
         self._panel_b = self._build_panel_b()
+        self._panel_c = self._build_panel_c()
         self._draw_footer()
 
     # -- static layout -----------------------------------------------------
@@ -158,6 +159,15 @@ class HeroFigure:
         men = stats["rates"]["men"]
         women = stats["rates"]["women"]
         fig = self.fig
+        fig.text(
+            0.055,
+            0.972,
+            "U.S. LABOR FORCE  ·  1948–2026",
+            color=PALETTE["accent"],
+            fontsize=6.5,
+            fontweight="bold",
+            va="top",
+        )
         fig.text(
             0.055,
             0.972,
@@ -585,6 +595,127 @@ class HeroFigure:
             )
             self._end_labels.extend([leader, text])
 
+    def _build_panel_c(self) -> _PanelState:
+        shift_share = self._stats.get("shift_share", {})
+        within = shift_share.get("within_group_effect", 0.0)
+        between = shift_share.get("between_group_effect", 0.0)
+        total = within + between
+
+        # Convert to absolute values for display
+        within_abs = abs(within)
+        between_abs = abs(between)
+        total_abs = abs(total)
+
+        # Calculate percentages for stacking
+        if total_abs == 0:
+            within_pct = 50.0
+            between_pct = 50.0
+        else:
+            within_pct = (within_abs / total_abs) * 100
+            between_pct = (between_abs / total_abs) * 100
+
+        # Colors for the components
+        within_color = PALETTE["accent"]  # Using accent color for behavioral
+        between_color = PALETTE["total"]  # Using total color for demographic
+
+        # Create a simple bar chart for shift-share decomposition
+        
+        # Panel position: below panel B (0.155 height, starting at 0.100)
+        ax = self.fig.add_axes((0.055, 0.100, 0.79, 0.080))
+        _style_axes(ax)
+        ax.set_ylim(0, 100)
+        ax.set_xlim(0, 1)
+        
+        # Create stacked bar visualization
+        bar_height = 0.6
+        bar_width = 0.8
+        x_pos = 0.5
+        
+        # Draw bars
+        ax.bar(x_pos, within_pct, 
+               width=bar_width, height=bar_height, 
+               bottom=0, color=within_color, alpha=0.7,
+               linewidth=1.5, edgecolor='white', zorder=5)
+        
+        between_x = x_pos - within_pct / 200  # Offset between bars
+        ax.bar(between_x, between_pct,
+               width=bar_width, height=bar_height,
+               bottom=0, color=between_color, alpha=0.7,
+               linewidth=1.5, edgecolor='white', zorder=5)
+        
+        # Create text labels
+        label = self.fig.text(
+            0.055,
+            0.135,
+            "SHIFT-SHARE DECOMPOSITION (2000-2026): Behavioral vs. Demographic",
+            color=PALETTE["total"],
+            fontsize=6.0,
+            fontweight="bold",
+            va="bottom",
+        )
+
+        # Add legend and values
+            ax.text(
+                0.065,
+                0.105,
+                f"Within-group (behavioral): {within:+.1f} pp",
+                color=within_color,
+                fontsize=5.5,
+                ha="left",
+                va="top",
+                bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
+            )
+            ax.text(
+                0.065,
+                0.090,
+                f"Between-group (demographic): {between:+.1f} pp",
+                color=between_color,
+                fontsize=5.5,
+                ha="left",
+                va="top",
+                bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
+            )
+
+        # Add total line
+        ax.plot(
+            [0.05, 0.95],
+            [50, 50],
+            color=PALETTE["muted"],
+            linewidth=0.8,
+            linestyle="--",
+            alpha=0.5,
+            zorder=1,
+        )
+        ax.text(
+            0.95,
+            50,
+            f"Total change: {total:+.1f} pp",
+            color=PALETTE["muted"],
+            fontsize=5.5,
+            ha="right",
+            va="center",
+        )
+
+        # Hide axes
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.spines["bottom"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        # Create panel state
+        return _PanelState(
+            ax=ax,
+            twin=None,
+            label=label,
+            dates=np.array([0.0, 1.0]),
+            lines=[],
+            artists=[],
+            start=0.0,
+            end=1.0,
+        )
+
     # -- reveal / animation ------------------------------------------------
 
     def reveal(self, t: float) -> None:
@@ -602,6 +733,17 @@ class HeroFigure:
         self._panel_b.set_visible(True)
         u = (t - panel_b_start) / (1.0 - panel_b_start)
         self._reveal_panel(self._panel_b, u)
+
+        panel_c_start = (self._panel_c.start - self._panel_a.start) / (
+            self._panel_a.end - self._panel_a.start
+        )
+        if t <= panel_c_start:
+            self._panel_c.set_visible(False)
+            return
+
+        self._panel_c.set_visible(True)
+        v = (t - panel_c_start) / (1.0 - panel_c_start)
+        self._reveal_panel(self._panel_c, v)
 
         alpha = min(max((t - 0.88) / 0.12, 0.0), 1.0)
         for artist in self._end_labels:

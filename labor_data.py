@@ -40,6 +40,14 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "POPTHM": "population_all_ages",
     "LNS12032194": "weekly_hours_men",
     "LNS12032195": "weekly_hours_women",
+    # Demographics expansion series
+    "LNS11300060": "rate_prime",
+    "LNS11300061": "rate_prime_men",
+    "LNS11300062": "rate_prime_women",
+    "LNS11324230": "rate_older",
+    "LNU00000012": "population_youth",
+    "LNU00000060": "population_prime",
+    "LNU00000242": "population_older",
 }
 
 QUARTERLY_COLUMNS: dict[str, str] = {
