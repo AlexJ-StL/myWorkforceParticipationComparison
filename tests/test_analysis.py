@@ -652,6 +652,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "checks",
         "coverage",
         "weekly_hours",
+        "shift_share",
     }
     assert set(synthetic_stats["rates"]) == {"total", "men", "women"}
     assert set(synthetic_stats["regimes"]) == {"1948-2000", "2000-2019", "2019-2026"}
@@ -729,7 +730,7 @@ def test_compute_stats_implied_matches_published_on_synthetic_data(synthetic_sta
 
 def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
     coverage = synthetic_stats["coverage"]
-    assert coverage["series_count"] == 27  # 25 FRED + 2 BLS
+    assert coverage["series_count"] == 32  # 30 FRED + 2 BLS
     assert coverage["missing_periods"] == ["2025-10"]
     assert coverage["monthly_span"] == "1948-01..2026-09"
     assert coverage["earnings_span"] == "1979-01..2026-04"
@@ -1047,7 +1048,7 @@ def test_header_reports_generation_and_span(render_stats):
     text = analysis._header(render_stats)
     assert text.startswith("# U.S. Workforce Participation: Findings\n\n")
     assert "Generated " in text
-    assert "27 FRED series and 2 BLS series" in text
+    assert "30 FRED series and 2 BLS series" in text
     assert "1948-01..2026-09 monthly" in text
     assert "1979-01..2026-04 quarterly earnings" in text
     assert "October 2025" in text
@@ -1313,14 +1314,14 @@ def test_shift_share_base_year_parameter():
 
     # Test with base_year=2005
     result_2005 = analysis.calculate_shift_share(df_pop, df_lfpr, base_year=2005)
-    
+
     # Test with base_year=2000
     result_2000 = analysis.calculate_shift_share(df_pop, df_lfpr, base_year=2000)
 
     # The 2005 result should have different decomposition (base year matters)
     assert not result_2005.empty
     assert not result_2000.empty
-    
+
     # The latest years should have different effects based on different base years
     # Results may be different depending on the base year
     # This test ensures the function runs without errors and produces different results
@@ -1360,61 +1361,13 @@ def test_shift_share_missing_columns_raises_error():
         analysis.calculate_shift_share(df_pop, df_lfpr)
 
 
-def test_shift_share_stats_integration():
-    """Test that shift-share stats are properly integrated with compute_stats."""
-    from labor_data import WorkforceData as WD
+def test_shift_share_stats_integration(synthetic_stats):
+    """Shift-share statistics are computed from the complete assembled dataset."""
+    assert "shift_share" in synthetic_stats
 
-    # Create a minimal WorkforceData object with required columns
-    monthly = pd.DataFrame(
-        {
-            "rate_men": [70.0, 72.0, 74.0],
-            "rate_women": [60.0, 62.0, 64.0],
-            "rate_total": [65.0, 67.0, 69.0],
-            "gap_pp": [10.0, 10.0, 10.0],
-            "population_youth": [100.0, 105.0, 110.0],
-            "population_prime": [200.0, 205.0, 210.0],
-            "population_older": [80.0, 85.0, 90.0],
-            "population_total": [380.0, 390.0, 400.0],
-            "rate_prime": [65.0, 67.0, 69.0],
-            "rate_prime_men": [70.0, 72.0, 74.0],
-            "rate_prime_women": [60.0, 62.0, 64.0],
-            "rate_older": [70.0, 72.0, 74.0],
-        },
-        index=pd.date_range("2000-01-01", periods=3, freq="MS"),
-    )
-
-    quarterly = pd.DataFrame(
-        {
-            "weekly_real_men": [400.0] * 3,
-            "weekly_real_women": [300.0] * 3,
-            "weekly_real_total": [350.0] * 3,
-            "earnings_ratio_nominal": [75.0] * 3,
-            "earnings_ratio_real": [70.0] * 3,
-        },
-        index=pd.date_range("2000-01-01", periods=3, freq="QS"),
-    )
-
-    hourly = pd.DataFrame(
-        {
-            "weekly_hours_men": [40.0] * 3,
-            "weekly_hours_women": [35.0] * 3,
-            "weekly_hours_total": [37.5] * 3,
-        },
-        index=pd.date_range("2000-01-01", periods=3, freq="MS"),
-    )
-
-    coverage = pd.DataFrame({"missing_periods": []})
-
-    data = WD(monthly, quarterly, hourly, coverage)
-    stats = analysis.compute_stats(data)
-
-    # Check that shift-share stats are present
-    assert "shift_share" in stats
-
-    shift_share_stats = stats["shift_share"]
+    shift_share_stats = synthetic_stats["shift_share"]
     assert isinstance(shift_share_stats, dict)
 
-    # Check expected keys are present
     expected_keys = [
         "within_group_effect",
         "between_group_effect",
@@ -1422,5 +1375,7 @@ def test_shift_share_stats_integration():
         "cumulative_between_group",
         "year",
     ]
-    for key in expected_keys:
-        assert key in shift_share_stats
+    assert set(shift_share_stats) == set(expected_keys)
+    assert shift_share_stats["year"] == 2026
+    for key in expected_keys[:-1]:
+        assert isinstance(shift_share_stats[key], float)

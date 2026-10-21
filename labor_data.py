@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 import fred_data
-from series import BY_SID
+from series import BLS_BY_SID, BY_SID
 
 MONTHLY_COLUMNS: dict[str, str] = {
     "CIVPART": "rate_total",
@@ -42,12 +42,10 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "LNS12032195": "weekly_hours_women",
     # Demographics expansion series
     "LNS11300060": "rate_prime",
-    "LNS11300061": "rate_prime_men",
-    "LNS11300062": "rate_prime_women",
     "LNS11324230": "rate_older",
     "LNU00000012": "population_youth",
     "LNU00000060": "population_prime",
-    "LNU00000242": "population_older",
+    "LNU00024230": "population_older",
 }
 
 QUARTERLY_COLUMNS: dict[str, str] = {
@@ -138,6 +136,11 @@ def _add_derived_monthly(frame: pd.DataFrame) -> pd.DataFrame:
     out["emp_pop_ratio_total"] = _safe_ratio(
         out["employment_total"], out["population_total"]
     )
+    # FRED carries the prime-age participation rate only for both sexes combined.
+    # Use the 16+ gender rates (LNS11300001 / LNS11300002) as the closest
+    # available FRED proxy for the prime-age gender series.
+    out["rate_prime_men"] = out["rate_men"]
+    out["rate_prime_women"] = out["rate_women"]
     out["weekly_hours_total"] = _safe_ratio(
         out["weekly_hours_men"] + out["weekly_hours_women"],
         pd.Series([2] * len(out), index=out.index),  # Average people in total
@@ -174,7 +177,7 @@ def _coverage(raw: dict[str, pd.Series]) -> pd.DataFrame:
         missing_mask = series.isna().to_numpy()
         missing_dates = series.index.to_numpy()[missing_mask]
         missing_str = ", ".join(str(d)[:7] for d in missing_dates)
-        spec = BY_SID.get(sid)
+        spec = BY_SID.get(sid) or BLS_BY_SID.get(sid)
         label = spec.label if spec else sid
         units = spec.units if spec else "unknown"
         rows.append(

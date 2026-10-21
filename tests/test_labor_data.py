@@ -31,6 +31,8 @@ MONTHLY_DERIVED = {
     "emp_pop_ratio_total",
     "weekly_hours_total",
     "weekly_hours_ratio_w_m",
+    "rate_prime_men",
+    "rate_prime_women",
 }
 QUARTERLY_DERIVED = {"earnings_ratio_nominal", "earnings_ratio_real"}
 HOURLY_DERIVED = {"ahe_real", "ahe_production_real"}

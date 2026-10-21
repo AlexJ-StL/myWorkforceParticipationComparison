@@ -20,13 +20,13 @@ from fred_data import FredFetchError
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason="monkeypatch of analysis.build/compute_stats unreliable; integration test covers real behavior"
-)
 def test_analysis_main_writes_findings_and_summary(
     monkeypatch, tmp_path, synthetic_data, synthetic_stats
 ):
-    monkeypatch.setattr("analysis.build", lambda refresh=False: synthetic_data)
+    monkeypatch.setattr(
+        "analysis.build",
+        lambda refresh=False, bls_api_key=None: synthetic_data,
+    )
     monkeypatch.setattr("analysis.compute_stats", lambda data: synthetic_stats)
     outdir = tmp_path / "out"
     outdir.mkdir()
@@ -36,16 +36,16 @@ def test_analysis_main_writes_findings_and_summary(
     assert (outdir / "summary.json").exists()
 
 
-@pytest.mark.xfail(
-    reason="monkeypatch of analysis.build/compute_stats unreliable; integration test covers real behavior"
-)
 def test_analysis_main_refresh_flag_passes_through(
     monkeypatch, tmp_path, synthetic_data, synthetic_stats
 ):
     seen = {}
     monkeypatch.setattr(
         "analysis.build",
-        lambda refresh=False: (seen.update(refresh=refresh), synthetic_data)[1],
+        lambda refresh=False, bls_api_key=None: (
+            seen.update(refresh=refresh),
+            synthetic_data,
+        )[1],
     )
     monkeypatch.setattr("analysis.compute_stats", lambda data: synthetic_stats)
     outdir = tmp_path / "out"
@@ -56,16 +56,13 @@ def test_analysis_main_refresh_flag_passes_through(
     assert seen.get("refresh") is True
 
 
-@pytest.mark.xfail(
-    reason="monkeypatch of analysis.build unreliable; integration test covers real behavior"
-)
 def test_analysis_main_network_failure_exits_cleanly(
     monkeypatch, tmp_path, synthetic_data, synthetic_stats
 ):
     """D11: analysis.main mirrors viz's clean SystemExit on fetch errors."""
     monkeypatch.setattr(
         "analysis.build",
-        lambda refresh=False: (_ for _ in ()).throw(
+        lambda refresh=False, bls_api_key=None: (_ for _ in ()).throw(
             FredFetchError("CIVPART", "HTTP 404")
         ),
     )
@@ -77,13 +74,10 @@ def test_analysis_main_network_failure_exits_cleanly(
     assert excinfo.value.code == 1
 
 
-@pytest.mark.xfail(
-    reason="analysis.main uses json.dumps default allow_nan=True; fix in Phase 7"
-)
 def test_analysis_main_uses_allow_nan_false(
-    monkeypatch, synthetic_data, synthetic_stats
+    monkeypatch, tmp_path, synthetic_data, synthetic_stats
 ):
-    """Pin: main() uses json.dumps(..., allow_nan=False). Expected RED until Phase 7."""
+    """Pin: main() uses json.dumps(..., allow_nan=False)."""
     called = {}
     real_dumps = json.dumps
 
@@ -92,9 +86,14 @@ def test_analysis_main_uses_allow_nan_false(
         return real_dumps(obj, *args, **kwargs)
 
     monkeypatch.setattr(json, "dumps", spy)
-    monkeypatch.setattr("analysis.build", lambda refresh=False: synthetic_data)
+    monkeypatch.setattr(
+        "analysis.build",
+        lambda refresh=False, bls_api_key=None: synthetic_data,
+    )
     monkeypatch.setattr("analysis.compute_stats", lambda data: synthetic_stats)
-    monkeypatch.setattr(sys, "argv", ["analysis.py", "--outdir", "/tmp/ignored"])
+    monkeypatch.setattr(
+        sys, "argv", ["analysis.py", "--outdir", str(tmp_path / "ignored")]
+    )
     analysis.main()
     assert called.get("allow_nan") is False
 
@@ -160,13 +159,11 @@ def test_viz_main_flag_matrix(
     assert seen == expected
 
 
-@pytest.mark.xfail(
-    reason="monkeypatch of labor_viz.build unreliable; integration test covers real behavior"
-)
 def test_viz_main_refresh_passes_to_build(
     monkeypatch, tmp_path, synthetic_data, synthetic_stats
 ):
     seen = {}
+    _mock_viz_pipeline(monkeypatch, synthetic_data, synthetic_stats)
     monkeypatch.setattr(
         "labor_viz.build",
         lambda refresh=False, bls_api_key=None: (
@@ -174,7 +171,6 @@ def test_viz_main_refresh_passes_to_build(
             synthetic_data,
         )[1],
     )
-    _mock_viz_pipeline(monkeypatch, synthetic_data, synthetic_stats)
     outdir = tmp_path / "out"
     monkeypatch.setattr(
         sys, "argv", ["labor_viz.py", "--refresh", "--static", "--outdir", str(outdir)]

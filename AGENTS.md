@@ -50,7 +50,7 @@ into a visualization; read it from stats.
 ## Shift-Share & Demographic Analysis Specifications
 
 - **New Modules/Functions:**
-  - `series.py`: Add catalog mappings for `CIVPART`, `LNS11300060` (Prime Total), `LNS11300061` (Prime Male), `LNS11300062` (Prime Female), `LNS11324230` (55+), and population series (`LNU00000012`, `LNU00000060`, `LNU00000242`).
+  - `series.py`: Add catalog mappings for `CIVPART`, `LNS11300060` (Prime Total), `LNS11324230` (55+), and population series (`LNU00000012`, `LNU00000060`, `LNU00024230`). FRED does not publish prime-age LFPR by sex, so `rate_prime_men` / `rate_prime_women` are derived from the 16+ gender series (`LNS11300001` / `LNS11300002`).
   - `analysis.py`: Add `calculate_shift_share(df_pop, df_lfpr, base_year=2000)` to decompose LFPR change into Within-Group (behavioral) and Between-Group (demographic aging) effects.
   - `labor_viz.py`: Add dual-panel chart rendering (Headline vs. Prime-Age top panel; Shift-Share decomposition bottom panel).
 - **Data Rules:** Population shares $w_{i,t} = \text{Pop}_i / \text{Pop}_{\text{total}}$ must be computed on annual resampled means before matrix operations.
@@ -112,14 +112,11 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 
 ### Remaining Known Issues (Tracked)
 
-- **Suite:** 202 collected → **196 passed, 2 xfailed, 4 xpassed**; coverage **99%**
-  (8 uncovered lines, all error/exception paths).
-- **4 stale `xfail` markers (xpassed):** the defects they targeted (D5,
-  D11, `allow_nan=False`) are fixed, so they now pass. Convert them to ordinary
-  tests and drop the `xfail` marks.
-- **2 genuine `xfail`s:** CLI unit tests whose monkeypatch of
-  `analysis.build` / `labor_viz.build` is unreliable; the integration tests
-  cover the real behavior.
+- **Suite:** 246 collected → **246 passed, 0 xfailed**; coverage **96%**
+  (37 uncovered lines, mostly error/exception paths).
+- The former CLI `xfail` markers are gone: their doubles now accept the
+  `bls_api_key` argument, and `labor_viz.build` is patched after the pipeline
+  doubles are installed.
 
 ## Documentation
 

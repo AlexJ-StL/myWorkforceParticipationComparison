@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
@@ -20,7 +19,7 @@ import requests
 
 from fred_data import FetchError
 from labor_data import WorkforceData, build
-from series import BLS_SERIES
+from series import BLS_SERIES, FRED_SERIES
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
@@ -320,7 +319,7 @@ def _shift_share_stats(monthly: pd.DataFrame) -> dict:
             "cumulative_between_group": float(latest["cumulative_between_group"]),
             "year": int(latest["year"]),
         }
-    except Exception as e:
+    except (KeyError, ValueError, TypeError, ZeroDivisionError) as e:
         # If decomposition fails, return zeros
         print(f"Warning: Shift-share decomposition failed: {e}")
         return {
@@ -381,24 +380,24 @@ def _shift_share_section(stats: dict) -> str:
     between = ss.get("between_group_effect", 0.0)
 
     return (
-        "## Shift-Share: Demographic Aging vs. Behavioral Participation Shifts\\n\\n"
+        "## Shift-Share: Demographic Aging vs. Behavioral Participation Shifts\n\n"
         f"From 2000 to {ss.get('year', 2026)}, the change in the overall labor force "
-        f"participation rate (LFPR) was decomposed into two components:\\n\\n"
+        f"participation rate (LFPR) was decomposed into two components:\n\n"
         "1. **Within-Group Effect (Behavioral):** Changes in participation rates within "
-        f"each age group, holding population shares constant.\\n"
-        f"   - Size: {within:+.3f} percentage points\\n"
-        f"   - Interpretation: Shifts in labor market behavior within age cohorts\\n\\n"
+        f"each age group, holding population shares constant.\n"
+        f"   - Size: {within:+.3f} percentage points\n"
+        f"   - Interpretation: Shifts in labor market behavior within age cohorts\n\n"
         "2. **Between-Group Effect (Demographic Aging):** Changes in population "
-        f"shares across age groups, holding rates constant.\\n"
-        f"   - Size: {between:+.3f} percentage points\\n"
-        f"   - Interpretation: Aging of the population and changes in age structure\\n\\n"
+        f"shares across age groups, holding rates constant.\n"
+        f"   - Size: {between:+.3f} percentage points\n"
+        f"   - Interpretation: Aging of the population and changes in age structure\n\n"
         f"The net change in LFPR (within + between = {within + between:+.3f} pp) reflects "
         "the combined impact of these two fundamental forces shaping the U.S. labor "
-        "market since the turn of the millennium.\\n\\n"
+        "market since the turn of the millennium.\n\n"
         "**Key insight:** The demographic aging component has been the dominant factor, "
         "reflecting the retirement of the Baby Boomer generation and the aging of the "
         "population, while behavioral components have been more modest but still "
-        "economically significant.\\n"
+        "economically significant.\n"
     )
 
 
@@ -416,7 +415,7 @@ def render_report(data: WorkforceData, stats: dict) -> str:
         _shift_share_section(stats),  # New section for shift-share analysis
         _caveats_section(),
     ]
-    return "\\n\\n".join(sections)
+    return "\n\n".join(sections)
 
 
 def main() -> None:
@@ -443,7 +442,8 @@ def main() -> None:
     try:
         data = build(refresh=args.refresh, bls_api_key=args.bls_api_key)
     except (FetchError, requests.RequestException) as exc:
-        sys.exit(f"Execution Error: {exc}")
+        print(f"Execution Error: {exc}")
+        raise SystemExit(1) from exc
 
     stats = compute_stats(data)
 
@@ -455,7 +455,7 @@ def main() -> None:
     )
 
     print(report)
-    print(f"\\n[written] {args.outdir / 'findings.md'}")
+    print(f"\n[written] {args.outdir / 'findings.md'}")
     print(f"[written] {args.outdir / 'summary.json'}")
 
 
@@ -793,13 +793,13 @@ def _header(stats: dict) -> str:
     coverage = stats["coverage"]
     generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
     return (
-        "# U.S. Workforce Participation: Findings\\n\\n"
-        f"Generated {generated} from {coverage['series_count']} FRED series and "
+        "# U.S. Workforce Participation: Findings\n\n"
+        f"Generated {generated} from {len(FRED_SERIES)} FRED series and "
         f"{len(BLS_SERIES)} BLS series ({coverage['monthly_span']} monthly, "
-        f"{coverage['earnings_span']} quarterly earnings).\\n\\n"
+        f"{coverage['earnings_span']} quarterly earnings).\n\n"
         "**Data gap:** no CPS field work was conducted in October 2025 "
         "(2025 federal government shutdown), so every monthly series is "
-        "missing that month. Gaps are left as-is, never interpolated.\\n\\n"
+        "missing that month. Gaps are left as-is, never interpolated.\n\n"
         "**New in this release:** Added monthly average weekly hours worked "
         "for men and women in nonagricultural industries (BLS LNS12032194, "
         "LNS12032195), covering1948-2026."
@@ -834,7 +834,7 @@ def _participation_section(stats: dict) -> str:
     women = rates["women"]
     total = rates["total"]
     return (
-        "## Participation levels\\n\\n" + "\\n".join(rows) + "\\n\\n"
+        "## Participation levels\n\n" + "\n".join(rows) + "\n\n"
         f"The gender gap peaked at {gap['peak']:.1f} pp in {gap['peak_date']} "
         f"and stands at {gap['latest']:.1f} pp in {gap['latest_date']} -- a "
         f"narrowing of {gap['shrink_pp']:.1f} pp. Men's rate fell "
@@ -861,9 +861,7 @@ def _regime_section(stats: dict) -> str:
 
     post_2000 = stats["regimes"]["2000-2019"]
     return (
-        "## Trend regimes (OLS on monthly observations)\\n\\n"
-        + "\\n".join(rows)
-        + "\\n\\n"
+        "## Trend regimes (OLS on monthly observations)\n\n" + "\n".join(rows) + "\n\n"
         f"Women's participation rose steadily through 2000 and then turned "
         f"negative at {post_2000['rate_women']['slope_pp_per_year']:+.3f} pp/yr "
         f"(2000-2019). Men's decline continued at roughly "
@@ -893,7 +891,7 @@ def _covid_section(stats: dict) -> str:
             f"| {c['change_vs_baseline']:+.1f} pp | {recovery} |"
         )
     return (
-        "## COVID-19 shock and recovery\\n\\n" + "\\n".join(rows) + "\\n\\n"
+        "## COVID-19 shock and recovery\n\n" + "\n".join(rows) + "\n\n"
         "April 2020 was the sharpest monthly break in the entire 78-year "
         "series. By the latest observation the level has recovered toward, "
         "but not back to, the pre-pandemic baseline."
@@ -918,9 +916,9 @@ def _earnings_section(stats: dict) -> str:
     align = earnings["participation_alignment"]
 
     return (
-        "## Median usual weekly earnings (full-time wage & salary workers)\\n\\n"
-        + "\\n".join(rows)
-        + "\\n\\n"
+        "## Median usual weekly earnings (full-time wage & salary workers)\n\n"
+        + "\n".join(rows)
+        + "\n\n"
         f"Women's real median weekly earnings grew "
         f"{earnings['series']['women']['real_change_pct']:+.1f}% since 1979 "
         f"while men's changed "
@@ -928,7 +926,7 @@ def _earnings_section(stats: dict) -> str:
         f"essentially flat in real terms over 47 years. The women-to-men "
         f"earnings ratio rose from {ratio['first']:.1f}% ({ratio['first_date']}) "
         f"to {ratio['latest']:.1f}% ({ratio['latest_date']}), "
-        f"{ratio['change_pp']:+.1f} pp.\\n\\n"
+        f"{ratio['change_pp']:+.1f} pp.\n\n"
         "**Association with the participation gap:** the earnings ratio and "
         f"the participation gap move together over 1979-2026 "
         f"(correlation r = {align['corr_contemporaneous']:+.2f} "
@@ -957,7 +955,7 @@ def _weekly_hours_section(stats: dict) -> str:
             f"{ratio['change']:+.3f} | slope {ratio['slope_pp_per_year']:+.3f} pp/yr |"
         )
 
-    return "## Average Weekly Hours Worked\\n\\n" + "\\n".join(rows) + "\\n\\n"
+    return "## Average Weekly Hours Worked\n\n" + "\n".join(rows) + "\n\n"
 
 
 def _counts_section(stats: dict) -> str:
@@ -982,7 +980,7 @@ def _counts_section(stats: dict) -> str:
     share = shares["women_lf_share"]
     epop = shares["emp_pop_ratio_total"]
     return (
-        "## Counts and composition\\n\\n" + "\\n".join(rows) + "\\n\\n"
+        "## Counts and composition\n\n" + "\n".join(rows) + "\n\n"
         f"Women's share of the labor force went from "
         f"{share['first']:.1f}% ({share['first_date']}) to "
         f"{share['latest']:.1f}% ({share['latest_date']}). The "
@@ -1011,7 +1009,7 @@ def _checks_section(stats: dict) -> str:
             f"| {check['max_abs_diff_pp']:.2f} |"
         )
     return (
-        "## Internal consistency checks\\n\\n" + "\\n".join(rows) + "\\n\\n"
+        "## Internal consistency checks\n\n" + "\n".join(rows) + "\n\n"
         "Labor force levels by gender sum to the published total almost "
         "exactly. Implied rates (labor force / population) track the "
         "published rates within rounding; the residual differences come from "
@@ -1022,14 +1020,14 @@ def _checks_section(stats: dict) -> str:
 
 def _caveats_section() -> str:
     return (
-        "## Caveats\\n\\n"
-        "- **Correlation is not causation.** All statistics are descriptive.\\n"
+        "## Caveats\n\n"
+        "- **Correlation is not causation.** All statistics are descriptive.\n"
         "- **October 2025 is missing** from every CPS series (shutdown). No "
-        "interpolation is applied.\\n"
+        "interpolation is applied.\n"
         "- Participation rates are seasonally adjusted; BLS weekly hours are "
-        "not seasonally adjusted.\\n"
+        "not seasonally adjusted.\n"
         "- BLS weekly hours cover **nonagricultural industries, 16+ years** "
-        "and are not limited to full-time workers.\\n"
+        "and are not limited to full-time workers.\n"
         "- BLS series LNS12032194 (men) and LNS12032195 (women) are "
         "monthly estimates of average hours worked at work."
     )
@@ -1038,3 +1036,7 @@ def _caveats_section() -> str:
 def _ym(timestamp) -> str:
     """Format a timestamp as YYYY-MM."""
     return str(pd.Timestamp(timestamp))[:7]
+
+
+if __name__ == "__main__":
+    main()

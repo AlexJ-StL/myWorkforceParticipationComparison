@@ -231,22 +231,6 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
     SeriesSpec(
         "LNS11300060", "Prime 25–54 LFPR", "Prime 25–54", "rate", "total", "percent"
     ),
-    SeriesSpec(
-        "LNS11300061",
-        "Prime 25–54 Male LFPR",
-        "Prime 25–54 Men",
-        "rate",
-        "men",
-        "percent",
-    ),
-    SeriesSpec(
-        "LNS11300062",
-        "Prime 25–54 Female LFPR",
-        "Prime 25–54 Women",
-        "rate",
-        "women",
-        "percent",
-    ),
     SeriesSpec("LNS11324230", "55+ LFPR", "Older 55+", "rate", "total", "percent"),
     SeriesSpec(
         "LNU00000012",
@@ -265,7 +249,7 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
         "thousands",
     ),
     SeriesSpec(
-        "LNU00000242", "Civilian Pop 55+", "Older 55+", "level", "total", "thousands"
+        "LNU00024230", "Civilian Pop 55+", "Older 55+", "level", "total", "thousands"
     ),
 )
 

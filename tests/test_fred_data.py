@@ -370,7 +370,7 @@ def test_bls_unknown_sid_fails_before_any_network_call(fake_get):
 
 def test_fetch_all_returns_every_catalog_series(fake_get, fred_csv):
     def respond(sid):
-        if sid in {"LNS12032194", "LNS12032195"}:
+        if sid in set(ALL_BLS_SIDS):
             return _CsvResponse(
                 json.dumps(
                     {

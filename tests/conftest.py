@@ -58,6 +58,11 @@ MONTHLY_GAPPED = (
     "CPIAUCSL",
     "LNS12032194",
     "LNS12032195",
+    "LNS11300060",
+    "LNS11324230",
+    "LNU00000012",
+    "LNU00000060",
+    "LNU00024230",
 )
 
 
@@ -139,6 +144,18 @@ def _build_monthly() -> dict[str, pd.Series]:
     employment = lf_total * 0.94
     unrate = np.linspace(3.8, 4.6, n)
 
+    youth_share = np.linspace(0.20, 0.17, n)
+    prime_share = np.linspace(0.55, 0.53, n)
+    older_share = 1.0 - youth_share - prime_share
+    pop_youth = pop_total * youth_share
+    pop_prime = pop_total * prime_share
+    pop_older = pop_total * older_share
+
+    prime_rate_men = np.linspace(90.0, 89.0, n) + 0.5 * _covid_dip(index, 3.0)
+    prime_rate_women = np.linspace(73.0, 77.0, n) + 0.5 * _covid_dip(index, 2.5)
+    prime_rate = (prime_rate_men + prime_rate_women) / 2.0
+    older_rate = np.linspace(35.0, 40.0, n) + 0.5 * _covid_dip(index, 1.5)
+
     series = {
         "CIVPART": rate_total,
         "LNS11300001": men_rate,
@@ -160,6 +177,11 @@ def _build_monthly() -> dict[str, pd.Series]:
         "AHETPI": np.linspace(2.50, 31.0, n),
         "LNS12032194": np.linspace(40.0, 42.0, n),  # BLS men weekly hours
         "LNS12032195": np.linspace(35.0, 37.0, n),  # BLS women weekly hours
+        "LNS11300060": prime_rate,
+        "LNS11324230": older_rate,
+        "LNU00000012": pop_youth,
+        "LNU00000060": pop_prime,
+        "LNU00024230": pop_older,
     }
     out = {
         sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()

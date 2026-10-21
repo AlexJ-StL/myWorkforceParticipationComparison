@@ -619,30 +619,43 @@ class HeroFigure:
         between_color = PALETTE["total"]  # Using total color for demographic
 
         # Create a simple bar chart for shift-share decomposition
-        
+
         # Panel position: below panel B (0.155 height, starting at 0.100)
         ax = self.fig.add_axes((0.055, 0.100, 0.79, 0.080))
         _style_axes(ax)
         ax.set_ylim(0, 100)
         ax.set_xlim(0, 1)
-        
+
         # Create stacked bar visualization
-        bar_height = 0.6
         bar_width = 0.8
         x_pos = 0.5
-        
+
         # Draw bars
-        ax.bar(x_pos, within_pct, 
-               width=bar_width, height=bar_height, 
-               bottom=0, color=within_color, alpha=0.7,
-               linewidth=1.5, edgecolor='white', zorder=5)
-        
+        ax.bar(
+            x_pos,
+            within_pct,
+            width=bar_width,
+            bottom=0,
+            color=within_color,
+            alpha=0.7,
+            linewidth=1.5,
+            edgecolor="white",
+            zorder=5,
+        )
+
         between_x = x_pos - within_pct / 200  # Offset between bars
-        ax.bar(between_x, between_pct,
-               width=bar_width, height=bar_height,
-               bottom=0, color=between_color, alpha=0.7,
-               linewidth=1.5, edgecolor='white', zorder=5)
-        
+        ax.bar(
+            between_x,
+            between_pct,
+            width=bar_width,
+            bottom=0,
+            color=between_color,
+            alpha=0.7,
+            linewidth=1.5,
+            edgecolor="white",
+            zorder=5,
+        )
+
         # Create text labels
         label = self.fig.text(
             0.055,
@@ -655,26 +668,26 @@ class HeroFigure:
         )
 
         # Add legend and values
-            ax.text(
-                0.065,
-                0.105,
-                f"Within-group (behavioral): {within:+.1f} pp",
-                color=within_color,
-                fontsize=5.5,
-                ha="left",
-                va="top",
-                bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
-            )
-            ax.text(
-                0.065,
-                0.090,
-                f"Between-group (demographic): {between:+.1f} pp",
-                color=between_color,
-                fontsize=5.5,
-                ha="left",
-                va="top",
-                bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
-            )
+        ax.text(
+            0.065,
+            0.105,
+            f"Within-group (behavioral): {within:+.1f} pp",
+            color=within_color,
+            fontsize=5.5,
+            ha="left",
+            va="top",
+            bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
+        )
+        ax.text(
+            0.065,
+            0.090,
+            f"Between-group (demographic): {between:+.1f} pp",
+            color=between_color,
+            fontsize=5.5,
+            ha="left",
+            va="top",
+            bbox={"boxstyle": "round", "facecolor": "black", "alpha": 0.7, "pad": 0.3},
+        )
 
         # Add total line
         ax.plot(
