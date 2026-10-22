@@ -15,7 +15,7 @@ https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SID>
 ```
 
 **BLS Weekly Hours (optional)** — Two series on average weekly hours worked in non‑agricultural industries are also available directly from the BLS Public Data API v2.
-The catalog is declared in [`bls_data.py`](bls_data.py). To use these series, set the `BLS_API_KEY` environment variable to your BLS API key (optional; unauthenticated requests are rate‑limited).
+The catalog is declared in [bls_data.py](../bls_data.py). To use these series, set the `BLS_API_KEY` environment variable to your BLS API key (optional; unauthenticated requests are rate‑limited).
 
 The catalog is declared in [`series.py`](../series.py). Each entry is a
 `SeriesSpec(sid, label, short, track, sex, units, seasonal)`.
@@ -25,7 +25,7 @@ The catalog is declared in [`series.py`](../series.py). Each entry is a
 `labor_data.assemble()` produces three frames with different cadences:
 
 | Frame | Cadence | Contents |
-|---|---|---|
+| --- | --- | --- |
 | `monthly` | Month‑start (`MS`) | Participation, labor force, employment, population, unemployment, CPI, total population. |
 | `quarterly` | Quarter‑start (`QS`) | Median usual weekly earnings (nominal and real, 1982–84 $) by gender. |
 | `hourly` | Month‑start (`MS`) | Average hourly earnings (nominal) and their real (CPI‑deflated) counterparts. |
@@ -38,7 +38,7 @@ introduce leading `NaN`s (for example `ahe_nominal` begins 2006‑03).
 All 27 series (25 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
 
 | SID | Origin | Label | Units | Freq | Seas. | Track | Sex |
-|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | `CIVPART` | FRED | Labor Force Participation Rate | percent | monthly | SA | rate | total |
 | `LNS11300001` | FRED | Labor Force Participation Rate – Men | percent | monthly | SA | rate | men |
 | `LNS11300002` | FRED | Labor Force Participation Rate – Women | percent | monthly | SA | rate | women |
@@ -77,7 +77,7 @@ All 27 series (25 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = s
 Verified against the committed `data/raw/` cache (including `data/raw/bls/` for the BLS series):
 
 | Group of series | First obs | Last obs |
-|---|---|---|
+| --- | --- | --- |
 | Assembled `monthly` frame | 1947‑01 | 2026‑09 |
 | CPS/BLS labor series (`CIVPART`, `CLF16OV`, `CE16OV`, `UNRATE`, `LNS…`, `CNP16OV`) | 1948‑01 | 2026‑09 |
 | Consumer price index (`CPIAUCSL`) | 1947‑01 | 2026‑09 |
@@ -130,7 +130,7 @@ so `inf`/`NaN` never reach the stats or the JSON.
 ### Monthly
 
 | Column | Definition |
-|---|---|
+| --- | --- |
 | `gap_pp` | `rate_men − rate_women` (the gender participation gap, in pp). |
 | `rate_ratio_w_m` | `rate_women / rate_men × 100`. |
 | `women_lf_share` | `labor_force_women / labor_force_total × 100`. |
@@ -146,14 +146,14 @@ check.
 ### Quarterly
 
 | Column | Definition |
-|---|---|
+| --- | --- |
 | `earnings_ratio_nominal` | `weekly_nominal_women / weekly_nominal_men × 100`. |
 | `earnings_ratio_real` | `weekly_real_women / weekly_real_men × 100`. |
 
 ### Hourly
 
 | Column | Definition |
-|---|---|
+| --- | --- |
 | `ahe_real` | `ahe_nominal / cpi × 100`. |
 | `ahe_production_real` | `ahe_production_nominal / cpi × 100`. |
 
@@ -162,7 +162,7 @@ check.
 `labor_data._coverage()` returns one row per raw series with:
 
 | Field | Meaning |
-|---|---|
+| --- | --- |
 | `sid`, `label`, `units`, `seasonal` | Catalog metadata for the series. |
 | `first_obs`, `last_obs` | First/last **non-null** observation date (`YYYY-MM-DD`), or `None` if empty. |
 | `observations` | Total rows in the series index (including missing). |
@@ -180,7 +180,7 @@ shutdown**, so the survey series are missing **October 2025**. Verified against
 the cache:
 
 | Series | 2025‑10 value |
-|---|---|
+| --- | --- |
 | CPS series (`CIVPART`, `LNS…`, `CLF16OV`, `CNP16OV`, `CE16OV`, `UNRATE`) | missing (empty field) |
 | `CPIAUCSL` | missing |
 | `POPTHM` | present |
