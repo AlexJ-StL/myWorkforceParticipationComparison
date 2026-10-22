@@ -8,26 +8,29 @@ version = "0.1.0"
 fmt = "ruff format"
 lint = "ruff check --fix"
 style = [{ task = "fmt" }, { task = "lint" }]
-fetch = "python -c \"import labor_data; labor_data.build()\""
+fetch = 'python -c "import labor_data; labor_data.build()"'
 analyze = "python analysis.py"
+test = "pytest -q"
+test-cov = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_viz --cov=series --cov-report=term-missing"
+check-links = "python scripts/check_links.py"
+verify = { depends-on = ["lint", "check-links", "test-cov"] }
 
 [tasks.viz]
 cmd = "python labor_viz.py --all"
 env = { MPLBACKEND = "Agg" }
 
-[tasks.test]
-cmd = "pytest -q"
-
-[tasks.test-cov]
-cmd = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_viz --cov=series --cov-report=term-missing"
-
+# System / C-Extension Binaries (Conda-Forge)
 [dependencies]
-pandas = ">=3.0.6,<4"
-requests = ">=2.34.2,<3"
-matplotlib = ">=3.11.2,<4"
-ruff = ">=0.17.0,<0.18"
-plotly = ">=6.1,<7"
-pillow = ">=11,<12"
 ffmpeg = ">=7,<8"
+python = ">=3.11"
+
+# Pure Python Packages & Tooling (UV / PyPI)
+[pypi-dependencies]
+matplotlib = ">=3.11.2,<4"
+pandas = ">=3.0.6,<4"
+pillow = ">=11,<12"
+plotly = ">=6.1,<7"
 pytest = ">=9.1.1,<10"
 pytest-cov = ">=7.1.0,<8"
+requests = ">=2.34.2,<3"
+ruff = ">=0.17.0,<0.18"
