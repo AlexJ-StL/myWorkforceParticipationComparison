@@ -15,6 +15,10 @@ test-cov = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_v
 check-links = "python scripts/check_links.py"
 verify = { depends-on = ["lint", "check-links", "test-cov"] }
 
+[activation.env]
+SSL_CERT_FILE = "${PIXI_PROJECT_ROOT}.pixi/envs/default/Library/ssl/cacert.pem"
+SSL_CERT_DIR = ""
+
 [tasks.viz]
 cmd = "python labor_viz.py --all"
 env = { MPLBACKEND = "Agg" }
