@@ -47,6 +47,172 @@ class EmptySeriesError(ValueError):
     """
 
 
+_SHIFT_SHARE_POP_COLUMNS: tuple[str, ...] = (
+    "population_youth",
+    "population_prime",
+    "population_older",
+)
+
+_SHIFT_SHARE_LFPR_COLUMNS: tuple[str, ...] = (
+    "rate_prime",
+    "rate_prime_men",
+    "rate_prime_women",
+    "rate_older",
+)
+
+_AGE_GROUPS: tuple[str, ...] = ("youth", "prime", "older")
+
+_WITHIN_GROUP_RATE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("youth", "rate_prime"),
+    ("prime", "rate_prime_men"),
+    ("prime", "rate_prime_women"),
+    ("older", "rate_older"),
+)
+
+
+def _require_columns(
+    frame: pd.DataFrame, columns: tuple[str, ...], frame_name: str
+) -> None:
+    """Raise ``ValueError`` naming the first required column missing from ``frame``."""
+    for column in columns:
+        if column not in frame.columns:
+            raise ValueError(f"{frame_name} must contain '{column}' column")
+
+
+def _annual_with_year(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return ``frame`` resampled to annual means with an integer ``year`` column."""
+    if "year" not in frame.index.names:
+        frame = frame.resample("YE").mean()
+    frame = frame.copy()
+    frame["year"] = frame.index.to_series().dt.year.astype(int)
+    return frame
+
+
+def _shift_share_values(pop_row: pd.Series, lfpr_row: pd.Series) -> dict[str, float]:
+    """Extract the population and LFPR values from one annual row as floats."""
+    return {
+        "pop_youth": float(pop_row["population_youth"]),
+        "pop_prime": float(pop_row["population_prime"]),
+        "pop_older": float(pop_row["population_older"]),
+        "pop_total": float(pop_row["population_total"]),
+        "rate_prime": float(lfpr_row["rate_prime"]),
+        "rate_prime_men": float(lfpr_row["rate_prime_men"]),
+        "rate_prime_women": float(lfpr_row["rate_prime_women"]),
+        "rate_older": float(lfpr_row["rate_older"]),
+    }
+
+
+def _population_shares(values: dict[str, float]) -> dict[str, float]:
+    """Return each age group's share of total population."""
+    total = values["pop_total"]
+    return {
+        f"pop_share_{group}": values[f"pop_{group}"] / total for group in _AGE_GROUPS
+    }
+
+
+def _mean_lfpr(values: dict[str, float]) -> float:
+    """Return the mean of the four age-group participation rates."""
+    return (
+        values["rate_prime"]
+        + values["rate_prime_men"]
+        + values["rate_prime_women"]
+        + values["rate_older"]
+    ) / 4
+
+
+def _within_group_effect(
+    current: dict[str, float],
+    base: dict[str, float],
+    current_shares: dict[str, float],
+    base_shares: dict[str, float],
+) -> float:
+    """Return the behavioral component of the decomposition."""
+    return sum(
+        ((current_shares[f"pop_share_{group}"] + base_shares[f"pop_share_{group}"]) / 2)
+        * (current[rate_column] - base[rate_column])
+        for group, rate_column in _WITHIN_GROUP_RATE_COLUMNS
+    )
+
+
+def _between_group_effect(
+    current: dict[str, float],
+    base: dict[str, float],
+    current_shares: dict[str, float],
+    base_shares: dict[str, float],
+) -> float:
+    """Return the demographic-aging component of the decomposition."""
+    return sum(
+        ((current[f"pop_{group}"] + base[f"pop_{group}"]) / 2)
+        * (current_shares[f"pop_share_{group}"] - base_shares[f"pop_share_{group}"])
+        for group in _AGE_GROUPS
+    )
+
+
+def _shift_share_row(
+    year: int, current: dict[str, float], base: dict[str, float]
+) -> dict:
+    """Compute one year's shift-share decomposition row."""
+    current_shares = _population_shares(current)
+    base_shares = _population_shares(base)
+    within_group_effect = _within_group_effect(
+        current, base, current_shares, base_shares
+    )
+    between_group_effect = _between_group_effect(
+        current, base, current_shares, base_shares
+    )
+
+    return {
+        "year": year,
+        "pop_youth": current["pop_youth"],
+        "pop_prime": current["pop_prime"],
+        "pop_older": current["pop_older"],
+        "rate_prime": current["rate_prime"],
+        "rate_prime_men": current["rate_prime_men"],
+        "rate_prime_women": current["rate_prime_women"],
+        "rate_older": current["rate_older"],
+        "pop_share_youth": current_shares["pop_share_youth"],
+        "pop_share_prime": current_shares["pop_share_prime"],
+        "pop_share_older": current_shares["pop_share_older"],
+        "lfpr_change_total": _mean_lfpr(current) - _mean_lfpr(base),
+        "within_group_effect": within_group_effect,
+        "between_group_effect": between_group_effect,
+        "cumulative_within_group": within_group_effect,
+        "cumulative_between_group": between_group_effect,
+    }
+
+
+def _rows_by_year(frame: pd.DataFrame) -> dict[int, pd.Series]:
+    """Map each year in ``frame`` to its first row."""
+    return {
+        int(year): frame[frame["year"] == year].iloc[0]
+        for year in sorted(frame["year"].unique())
+    }
+
+
+def _base_shift_share_values(
+    pop: pd.DataFrame, lfpr: pd.DataFrame, base_year: int
+) -> dict[str, float] | None:
+    """Resolve the base-year population and LFPR values, or ``None`` if absent."""
+    base_pop = pop[pop["year"] == base_year]
+    base_lfpr = lfpr[lfpr["year"] == base_year]
+    if base_pop.empty or base_lfpr.empty:
+        return None
+    return _shift_share_values(base_pop.iloc[0], base_lfpr.iloc[0])
+
+
+def _decomposition_rows(
+    pop: pd.DataFrame, lfpr: pd.DataFrame, base: dict[str, float]
+) -> list[dict]:
+    """Build one decomposition row per year present in both annual frames."""
+    pop_rows = _rows_by_year(pop)
+    lfpr_rows = _rows_by_year(lfpr)
+    return [
+        _shift_share_row(year, _shift_share_values(pop_row, lfpr_rows[year]), base)
+        for year, pop_row in pop_rows.items()
+        if year in lfpr_rows
+    ]
+
+
 def calculate_shift_share(
     df_pop: pd.DataFrame, df_lfpr: pd.DataFrame, base_year: int = 2000
 ) -> pd.DataFrame:
@@ -106,229 +272,88 @@ def calculate_shift_share(
     The result is annual; ``df_pop`` and ``df_lfpr`` are expected to be monthly data
     that are resampled to annual means by this function.
     """
-    # Simplified implementation for the task
-    # In a full implementation, this would perform the actual decomposition
-    # For now, we'll implement a basic version that meets the requirements
+    _require_columns(df_pop, _SHIFT_SHARE_POP_COLUMNS, "df_pop")
+    _require_columns(df_lfpr, _SHIFT_SHARE_LFPR_COLUMNS, "df_lfpr")
 
-    # Extract population and LFPR data from the monthly frames
-    if "population_youth" not in df_pop.columns:
-        raise ValueError("df_pop must contain 'population_youth' column")
-    if "population_prime" not in df_pop.columns:
-        raise ValueError("df_pop must contain 'population_prime' column")
-    if "population_older" not in df_pop.columns:
-        raise ValueError("df_pop must contain 'population_older' column")
+    pop = _annual_with_year(df_pop)
+    lfpr = _annual_with_year(df_lfpr)
 
-    if "rate_prime" not in df_lfpr.columns:
-        raise ValueError("df_lfpr must contain 'rate_prime' column")
-    if "rate_prime_men" not in df_lfpr.columns:
-        raise ValueError("df_lfpr must contain 'rate_prime_men' column")
-    if "rate_prime_women" not in df_lfpr.columns:
-        raise ValueError("df_lfpr must contain 'rate_prime_women' column")
-    if "rate_older" not in df_lfpr.columns:
-        raise ValueError("df_lfpr must contain 'rate_older' column")
+    base = _base_shift_share_values(pop, lfpr, base_year)
+    if base is None:
+        return pd.DataFrame()
 
-    # Resample to annual if needed
-    if "year" not in df_pop.index.names:
-        df_pop = df_pop.resample("YE").mean()
-    if "year" not in df_lfpr.index.names:
-        df_lfpr = df_lfpr.resample("YE").mean()
+    return pd.DataFrame(_decomposition_rows(pop, lfpr, base))
 
-    # Extract year from index for clarity
-    df_pop = df_pop.copy()
-    df_lfpr = df_lfpr.copy()
-    df_pop["year"] = df_pop.index.year
-    df_lfpr["year"] = df_lfpr.index.year
 
-    # Calculate decomposition for each year
-    results = []
-    for year in sorted(df_pop["year"].unique()):
-        df_pop_year = df_pop[df_pop["year"] == year]
-        df_lfpr_year = df_lfpr[df_lfpr["year"] == year]
+def _empty_shift_share_stats() -> dict:
+    """Return the zero-filled fallback payload used when decomposition is unavailable."""
+    return {
+        "within_group_effect": 0.0,
+        "between_group_effect": 0.0,
+        "cumulative_within_group": 0.0,
+        "cumulative_between_group": 0.0,
+        "year": 2026,
+    }
 
-        # Get base year data for decomposition
-        df_pop_base = df_pop[df_pop["year"] == base_year]
-        df_lfpr_base = df_lfpr[df_lfpr["year"] == base_year]
 
-        # Get latest values for the year
-        if df_pop_year.empty or df_lfpr_year.empty:
-            continue
+def _shift_share_frames(monthly: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return the population and LFPR column subsets used by the decomposition."""
+    pop_columns = [c for c in monthly.columns if c.startswith("population_")]
+    lfpr_columns = [
+        c for c in monthly.columns if c.startswith(("rate_prime", "rate_older"))
+    ]
+    # Explicit casts keep type checkers from treating list-indexing as a Series.
+    df_pop = cast(pd.DataFrame, monthly[pop_columns].copy())
+    df_lfpr = cast(pd.DataFrame, monthly[lfpr_columns].copy())
+    return df_pop, df_lfpr
 
-        # Get population data
-        pop_youth = float(df_pop_year["population_youth"].iloc[0])
-        pop_prime = float(df_pop_year["population_prime"].iloc[0])
-        pop_older = float(df_pop_year["population_older"].iloc[0])
-        pop_total = float(df_pop_year["population_total"].iloc[0])
 
-        # Get LFPR data
-        rate_prime = float(df_lfpr_year["rate_prime"].iloc[0])
-        rate_prime_men = float(df_lfpr_year["rate_prime_men"].iloc[0])
-        rate_prime_women = float(df_lfpr_year["rate_prime_women"].iloc[0])
-        rate_older = float(df_lfpr_year["rate_older"].iloc[0])
+def _ensure_rate_total(df_lfpr: pd.DataFrame) -> None:
+    """Add a mean ``rate_total`` column when the source frame lacks one."""
+    if "rate_total" in df_lfpr.columns:
+        return
+    rate_columns = [c for c in df_lfpr.columns if c.startswith("rate_")]
+    if rate_columns:
+        df_lfpr["rate_total"] = df_lfpr[rate_columns].mean(axis=1)
 
-        # Get base year data
-        if df_pop_base.empty or df_lfpr_base.empty:
-            continue
 
-        pop_youth_base = float(df_pop_base["population_youth"].iloc[0])
-        pop_prime_base = float(df_pop_base["population_prime"].iloc[0])
-        pop_older_base = float(df_pop_base["population_older"].iloc[0])
-        pop_total_base = float(df_pop_base["population_total"].iloc[0])
+def _shift_share_columns_present(df_pop: pd.DataFrame, df_lfpr: pd.DataFrame) -> bool:
+    """Return whether both frames contain every column the decomposition needs."""
+    pop_columns = _SHIFT_SHARE_POP_COLUMNS + ("population_total",)
+    lfpr_columns = _SHIFT_SHARE_LFPR_COLUMNS + ("rate_total",)
+    return all(c in df_pop.columns for c in pop_columns) and all(
+        c in df_lfpr.columns for c in lfpr_columns
+    )
 
-        rate_prime_base = float(df_lfpr_base["rate_prime"].iloc[0])
-        rate_prime_men_base = float(df_lfpr_base["rate_prime_men"].iloc[0])
-        rate_prime_women_base = float(df_lfpr_base["rate_prime_women"].iloc[0])
-        rate_older_base = float(df_lfpr_base["rate_older"].iloc[0])
 
-        # Calculate population shares
-        pop_share_youth = pop_youth / pop_total
-        pop_share_prime = pop_prime / pop_total
-        pop_share_older = pop_older / pop_total
-
-        pop_share_youth_base = pop_youth_base / pop_total_base
-        pop_share_prime_base = pop_prime_base / pop_total_base
-        pop_share_older_base = pop_older_base / pop_total_base
-
-        # Calculate LFPR total change
-        lfpr_total_base = (
-            rate_prime_base
-            + rate_prime_men_base
-            + rate_prime_women_base
-            + rate_older_base
-        ) / 4
-        lfpr_total = (rate_prime + rate_prime_men + rate_prime_women + rate_older) / 4
-
-        lfpr_change_total = lfpr_total - lfpr_total_base
-
-        # Calculate within-group (behavioral) effect using shift-share formula
-        within_group_effect = (
-            ((pop_share_youth + pop_share_youth_base) / 2)
-            * (rate_prime - rate_prime_base)
-            + ((pop_share_prime + pop_share_prime_base) / 2)
-            * (rate_prime_men - rate_prime_men_base)
-            + ((pop_share_prime + pop_share_prime_base) / 2)
-            * (rate_prime_women - rate_prime_women_base)
-            + ((pop_share_older + pop_share_older_base) / 2)
-            * (rate_older - rate_older_base)
-        )
-
-        # Calculate between-group (demographic) effect using shift-share formula
-        between_group_effect = (
-            ((pop_youth + pop_youth_base) / 2)
-            * (pop_share_youth - pop_share_youth_base)
-            + ((pop_prime + pop_prime_base) / 2)
-            * (pop_share_prime - pop_share_prime_base)
-            + ((pop_older + pop_older_base) / 2)
-            * (pop_share_older - pop_share_older_base)
-        )
-
-        # Calculate cumulative effects
-        results.append(
-            {
-                "year": year,
-                "pop_youth": pop_youth,
-                "pop_prime": pop_prime,
-                "pop_older": pop_older,
-                "rate_prime": rate_prime,
-                "rate_prime_men": rate_prime_men,
-                "rate_prime_women": rate_prime_women,
-                "rate_older": rate_older,
-                "pop_share_youth": pop_share_youth,
-                "pop_share_prime": pop_share_prime,
-                "pop_share_older": pop_share_older,
-                "lfpr_change_total": lfpr_change_total,
-                "within_group_effect": within_group_effect,
-                "between_group_effect": between_group_effect,
-                "cumulative_within_group": within_group_effect,
-                "cumulative_between_group": between_group_effect,
-            }
-        )
-
-    return pd.DataFrame(results)
+def _shift_share_payload(result: pd.DataFrame) -> dict:
+    """Return the latest decomposition row as the report payload."""
+    latest = result.iloc[-1]
+    return {
+        "within_group_effect": float(latest["within_group_effect"]),
+        "between_group_effect": float(latest["between_group_effect"]),
+        "cumulative_within_group": float(latest["cumulative_within_group"]),
+        "cumulative_between_group": float(latest["cumulative_between_group"]),
+        "year": int(latest["year"]),
+    }
 
 
 def _shift_share_stats(monthly: pd.DataFrame) -> dict:
     """Compute shift-share decomposition statistics for the report."""
-    # Extract population and LFPR columns for the analysis
-    df_pop = monthly[
-        [col for col in monthly.columns if col.startswith("population_")]
-    ].copy()
-    df_lfpr = monthly[
-        [col for col in monthly.columns if col.startswith(("rate_prime", "rate_older"))]
-    ].copy()
+    df_pop, df_lfpr = _shift_share_frames(monthly)
+    _ensure_rate_total(df_lfpr)
 
-    # Add rate_total column if not present
-    if "rate_total" not in df_lfpr.columns:
-        # Calculate rate_total as average of available rate columns
-        rate_cols = [col for col in df_lfpr.columns if col.startswith("rate_")]
-        if rate_cols:
-            df_lfpr["rate_total"] = df_lfpr[rate_cols].mean(axis=1)
+    if not _shift_share_columns_present(df_pop, df_lfpr):
+        return _empty_shift_share_stats()
 
-    # Ensure we have the required columns for shift-share analysis
-    required_pop_cols = [
-        "population_youth",
-        "population_prime",
-        "population_older",
-        "population_total",
-    ]
-    required_lfpr_cols = [
-        "rate_prime",
-        "rate_prime_men",
-        "rate_prime_women",
-        "rate_older",
-        "rate_total",
-    ]
-
-    # Check if we have the data
-    if not all(col in df_pop.columns for col in required_pop_cols):
-        return {
-            "within_group_effect": 0.0,
-            "between_group_effect": 0.0,
-            "cumulative_within_group": 0.0,
-            "cumulative_between_group": 0.0,
-            "year": 2026,
-        }
-
-    if not all(col in df_lfpr.columns for col in required_lfpr_cols):
-        return {
-            "within_group_effect": 0.0,
-            "between_group_effect": 0.0,
-            "cumulative_within_group": 0.0,
-            "cumulative_between_group": 0.0,
-            "year": 2026,
-        }
-
-    # Calculate shift-share decomposition
     try:
         shift_share_result = calculate_shift_share(df_pop, df_lfpr, base_year=2000)
-
         if shift_share_result.empty:
-            return {
-                "within_group_effect": 0.0,
-                "between_group_effect": 0.0,
-                "cumulative_within_group": 0.0,
-                "cumulative_between_group": 0.0,
-                "year": 2026,
-            }
-
-        latest = shift_share_result.iloc[-1]
-
-        return {
-            "within_group_effect": float(latest["within_group_effect"]),
-            "between_group_effect": float(latest["between_group_effect"]),
-            "cumulative_within_group": float(latest["cumulative_within_group"]),
-            "cumulative_between_group": float(latest["cumulative_between_group"]),
-            "year": int(latest["year"]),
-        }
-    except (KeyError, ValueError, TypeError, ZeroDivisionError) as e:
-        # If decomposition fails, return zeros
-        print(f"Warning: Shift-share decomposition failed: {e}")
-        return {
-            "within_group_effect": 0.0,
-            "between_group_effect": 0.0,
-            "cumulative_within_group": 0.0,
-            "cumulative_between_group": 0.0,
-            "year": 2026,
-        }
+            return _empty_shift_share_stats()
+        return _shift_share_payload(shift_share_result)
+    except (KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
+        print(f"Warning: Shift-share decomposition failed: {exc}")
+        return _empty_shift_share_stats()
 
 
 def compute_stats(data: WorkforceData) -> dict:

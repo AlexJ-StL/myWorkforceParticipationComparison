@@ -31,8 +31,9 @@ series.py ──▶ fred_data.py ──▶ labor_data.py ──▶ analysis.comp
 
 | Module | Responsibility | Key public surface |
 |---|---|---|
-| `series.py` | Static catalog of the 25 FRED series: IDs, labels, units, seasonality, gender/track tags, and the chart `PALETTE`. No I/O. | `SERIES`, `BY_SID`, `ALL_SIDS`, `PALETTE`, `SeriesSpec`, `sid()` |
+| `series.py` | Static catalog of the 30 FRED series: IDs, labels, units, seasonality, gender/track tags, and the chart `PALETTE`. No I/O. | `SERIES`, `BY_SID`, `ALL_SIDS`, `PALETTE`, `SeriesSpec`, `sid()` |
 | `fred_data.py` | Fetch FRED CSVs over HTTP, cache them verbatim under `data/raw/`, and parse them into named `pd.Series`. | `fetch_series()`, `fetch_all()`, `clear_cache()`, `FredFetchError` |
+| `bls_data.py` | Fetch optional BLS weekly-hours series from the BLS Public Data API v2 and cache them under `data/raw/`. | `BLS_SERIES`, `BLS_SERIES_DICT`, `BLS_ALL_SIDS`, `BlsSeriesSpec`, `fetch_bls_series()`, `fetch_all_bls_series()`, `clear_bls_cache()`, `BlsFetchError` |
 | `labor_data.py` | Join the cached series into three analysis-ready frames and add derived columns; build the per-series coverage report. | `build()`, `assemble()`, `WorkforceData` |
 | `analysis.py` | Compute every headline statistic and render the findings report. Also the analysis CLI. | `compute_stats()`, `render_report()`, `col()`, `EmptySeriesError`, `main()` |
 | `labor_viz.py` | Render the static hero PNG, the animated reveal, and the interactive HTML. Also the viz CLI. | `HeroFigure`, `build_static()`, `build_animated()`, `build_interactive()`, `main()` |

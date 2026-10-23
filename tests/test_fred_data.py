@@ -11,7 +11,9 @@ import pandas as pd
 import pytest
 import requests
 
+import data_common
 import fred_data
+from data_common import _is_stale
 from fred_data import FetchError, fetch_bls_series, fetch_fred_series
 from series import ALL_BLS_SIDS, ALL_FRED_SIDS
 
@@ -417,17 +419,17 @@ class _FrozenClock:
 def test_is_stale_boundary_age_equal_to_max_is_fresh(write_cache, monkeypatch):
     """Pin (D-behavior): strictly older-than is stale; exactly-max is fresh."""
     now = 1_700_000_000.0
-    monkeypatch.setattr(fred_data, "time", _FrozenClock(now))
+    monkeypatch.setattr(data_common, "time", _FrozenClock(now))
     path = write_cache("CIVPART", VALID_CSV)
     stamp = now - 30 * 86400
     os.utime(path, (stamp, stamp))
-    assert fred_data._is_stale(path, 30.0) is False
-    assert fred_data._is_stale(path, 29.999) is True
+    assert _is_stale(path, 30.0) is False
+    assert _is_stale(path, 29.999) is True
 
 
 def test_is_stale_zero_budget_always_stale(write_cache):
     path = write_cache("CIVPART", VALID_CSV)
-    assert fred_data._is_stale(path, 0.0) is True
+    assert _is_stale(path, 0.0) is True
 
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,7 @@ style = [{ task = "fmt" }, { task = "lint" }]
 fetch = 'python -c "import labor_data; labor_data.build()"'
 analyze = "python analysis.py"
 test = "pytest -q"
-test-cov = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_viz --cov=series --cov-report=term-missing"
+test-cov = "pytest --cov=analysis --cov=fred_data --cov=labor_data --cov=labor_viz --cov=series --cov-report=term-missing --cov=bls_data --cov=data_common"
 check-links = "python scripts/check_links.py"
 verify = { depends-on = ["lint", "check-links", "test-cov"] }
 

@@ -12,7 +12,6 @@ Network-level failures (DNS, timeouts, connection resets) propagate as
 
 from __future__ import annotations
 
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,6 +19,8 @@ from typing import TypedDict
 
 import pandas as pd
 import requests
+
+from data_common import _is_stale
 
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "raw"
 BLS_API_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -139,16 +140,18 @@ def fetch_all_bls_series(
 
 
 def clear_bls_cache() -> None:
-    """Delete all cached BLS series files."""
+    """Delete cached BLS series files, leaving unrelated files untouched.
+
+    Deletion is SID-scoped: only ``<sid>.json`` for SIDs in ``BLS_ALL_SIDS`` is
+    removed. The cache directory is shared with FRED CSVs, so a glob-based
+    delete would risk removing unrelated data.
+    """
     if not CACHE_DIR.exists():
         return
-    for path in CACHE_DIR.glob("*.json"):
-        path.unlink()
-
-
-def _is_stale(path: Path, max_age_days: float) -> bool:
-    age_days = (time.time() - path.stat().st_mtime) / 86400
-    return age_days > max_age_days
+    for sid in BLS_ALL_SIDS:
+        path = CACHE_DIR / f"{sid}.json"
+        if path.exists():
+            path.unlink()
 
 
 def _parse_bls(text: str, sid: str) -> pd.Series:
@@ -190,15 +193,3 @@ def _parse_bls(text: str, sid: str) -> pd.Series:
 
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         raise BlsFetchError(sid, f"unparseable response: {exc}") from exc
-
-
-def _extract_year_month(date_str: str) -> tuple[int, int]:
-    """Extract year and month from YYYY-MM-DD date string."""
-    year, month, _ = map(int, date_str.split("-", 2))
-    return year, month
-
-
-def _year_month_to_ordinal(year_month: tuple[int, int]) -> float:
-    """Convert (year, month) to ordinal for OLS calculations."""
-    year, month = year_month
-    return (year - 1948) * 12 + (month - 1)

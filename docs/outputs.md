@@ -9,7 +9,7 @@ produced by `pixi run analyze`; the visuals by `pixi run viz`.
 | `output/summary.json` | `analysis.main()` | yes |
 | `output/twitter_hero.png` | `labor_viz.build_static()` | yes |
 | `output/twitter_hero.mp4` (or `.gif`) | `labor_viz.build_animated()` | yes |
-| `output/twitter_interactive.html` | `labor_viz.build_interactive()` | yes |
+| `output/twitter_interactive.html` | `labor_viz.build_interactive()` | no (generated on demand) |
 
 ## CLI reference
 
@@ -180,7 +180,21 @@ underlying story.
   `plotly_dark` template with `hovermode="x unified"` and a range slider on
   row 2.
 - **Size:** ~1300×950 px logical layout. The embedded Plotly bundle makes the
-  file large (several MB); this is expected.
+  file large (several MB); this is expected. At the time of writing the
+  artifact is ~21.6 MB.
+
+### Artifact size policy
+
+The report and the static/animated visuals (`findings.md`, `summary.json`,
+`twitter_hero.png`, `twitter_hero.mp4`) stay committed so a fresh clone ships
+with the finished report and visuals without re-running the pipeline.
+
+`output/twitter_interactive.html` is **not committed** (as of 2026-10-22). It is
+by far the largest artifact (~21.6 MB, mostly the inlined Plotly bundle) and is
+a pure build product: `pixi run viz --interactive` regenerates it locally from
+the committed data and code. The path is listed in `.gitignore` so it is not
+re-added by accident. If a hosted copy is wanted in-repo later, move it to Git
+LFS rather than tracking it directly.
 
 See [architecture.md](architecture.md) for how the builders receive the shared
 `stats` dict.

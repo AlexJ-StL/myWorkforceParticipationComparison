@@ -2,7 +2,7 @@
 .pixi/*
 !.pixi/config.toml
 .ruff_cache
-myWorkforceParticipationComparison
+.pytest_cache/
 
 # agent scratch files
 .kilo/
@@ -13,4 +13,7 @@ __pycache__/
 
 # IDE files
 myWorkforceParticipationComparison.code-workspace
-.coverage
+.coverage*
+
+# generated on demand (large, ~21.6 MB)
+output/twitter_interactive.html

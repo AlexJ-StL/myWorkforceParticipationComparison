@@ -28,7 +28,7 @@ with `pixi add <package>` so the lock stays authoritative.
 
 | Command | Purpose |
 |---|---|
-| `pixi run fetch` | Download all 25 FRED series into `data/raw/`. |
+| `pixi run fetch` | Download all 30 FRED series into `data/raw/`. |
 | `pixi run analyze` | Recompute stats → `output/findings.md`, `output/summary.json`. |
 | `pixi run viz` | Rebuild all three visuals. |
 | `pixi run style` | `ruff format` then `ruff check --fix` — **run before committing**. |
@@ -57,6 +57,7 @@ pixi run pytest -m integration -q          # only the real-data integration test
 |---|---|
 | `series.py` | The FRED catalog and `PALETTE` (no I/O). |
 | `fred_data.py` | HTTP client + cache; `FredFetchError`. |
+| `bls_data.py` | BLS weekly-hours client and JSON cache; `BlsFetchError`. |
 | `labor_data.py` | Frame assembly and derived columns. |
 | `analysis.py` | `compute_stats()` + report renderer + CLI. |
 | `labor_viz.py` | Chart builders + CLI. |
@@ -265,6 +266,7 @@ pixi run test-cov         # coverage sanity
 
 Then re-run `pixi run analyze` and `pixi run viz` if you changed anything that
 affects the committed deliverables in `output/`, and commit the regenerated
-artifacts alongside the code.
+artifacts alongside the code. The interactive HTML is generated on demand and is
+not committed; run `pixi run viz --interactive` only when you need it locally.
 
 See [roadmap.md](roadmap.md) for planned work.

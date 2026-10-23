@@ -5,12 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
+import bls_data
 from bls_data import (
     BLS_ALL_SIDS,
     BLS_SERIES,
     BLS_SERIES_DICT,
     BlsFetchError,
     BlsSeriesSpec,
+    clear_bls_cache,
     fetch_bls_series,
 )
 
@@ -174,3 +176,19 @@ class TestBLSData:
         # Test that invalid series IDs raise appropriate errors
         with pytest.raises(BlsFetchError):
             fetch_bls_series("INVALID_SID")
+
+    def test_clear_bls_cache_preserves_unrelated_files(self, tmp_path, monkeypatch):
+        """clear_bls_cache must delete only known BLS JSON files, nothing else."""
+        monkeypatch.setattr(bls_data, "CACHE_DIR", tmp_path)
+        json_file = tmp_path / "LNS12032194.json"
+        unrelated_json = tmp_path / "unrelated.json"
+        csv_file = tmp_path / "ahetpi.csv"
+        json_file.write_text("{}")
+        unrelated_json.write_text("{}")
+        csv_file.write_text("date,value\n")
+
+        clear_bls_cache()
+
+        assert not json_file.exists()
+        assert unrelated_json.exists()
+        assert csv_file.exists()

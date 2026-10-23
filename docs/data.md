@@ -35,7 +35,7 @@ introduce leading `NaN`s (for example `ahe_nominal` begins 2006‑03).
 
 ## Series catalog
 
-All 27 series (25 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
+All 32 series (30 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
 
 | SID | Origin | Label | Units | Freq | Seas. | Track | Sex |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ All 27 series (25 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = s
 
 ### Observed spans
 
-Verified against the committed `data/raw/` cache (including `data/raw/bls/` for the BLS series):
+Verified against the committed `data/raw/` cache (including BLS JSON files in `data/raw/`):
 
 | Group of series | First obs | Last obs |
 | --- | --- | --- |

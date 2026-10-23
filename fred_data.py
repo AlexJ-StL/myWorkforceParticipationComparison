@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import io
 import json
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 import requests
 
+from data_common import _is_stale
 from series import BLS_BY_SID, BY_SID
 
 CACHE_DIR = Path(__file__).resolve().parent / "data" / "raw"
@@ -154,11 +154,6 @@ def clear_cache() -> None:
         path.unlink()
 
 
-def _is_stale(path: Path, max_age_days: float) -> bool:
-    age_days = (time.time() - path.stat().st_mtime) / 86400
-    return age_days > max_age_days
-
-
 def _parse_fred_csv(text: str, sid: str) -> pd.Series:
     """Parse FRED's CSV response into a pandas Series."""
     try:
@@ -223,15 +218,3 @@ def _parse_bls_json(text: str, sid: str) -> pd.Series:
 
     except (KeyError, ValueError, json.JSONDecodeError) as exc:
         raise FetchError(sid, f"unparseable response: {exc}") from exc
-
-
-def _extract_year_month(date_str: str) -> tuple[int, int]:
-    """Extract year and month from YYYY-MM-DD date string."""
-    year, month, _ = map(int, date_str.split("-", 2))
-    return year, month
-
-
-def _year_month_to_ordinal(year_month: tuple[int, int]) -> float:
-    """Convert (year, month) to ordinal for OLS calculations."""
-    year, month = year_month
-    return (year - 1948) * 12 + (month - 1)

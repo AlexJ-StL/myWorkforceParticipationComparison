@@ -39,6 +39,7 @@ re-download from FRED: pixi run analyze --refresh.
 | --- | --- |
 | series.py | FRED series catalog: IDs, labels, units, colors (PALETTE) |
 | fred_data.py | FRED CSV client with a local cache; defines FredFetchError |
+| bls_data.py | BLS weekly-hours client; optional API key; JSON cache in data/raw/ |
 | labor_data.py | Assembles monthly / quarterly / hourly frames + coverage |
 | analysis.py | compute_stats() (every headline number) + findings renderer |
 | labor_viz.py | Charts: static PNG, animated MP4 reveal, interactive HTML |
@@ -77,8 +78,8 @@ into a visualization; read it from stats.
   column access rather than `frame[name]`.
 - Visual style: dark Twitter theme from series.PALETTE, 1600x900 @ 200 dpi,
   glow strokes via labor_viz._glow, end labels in the right-hand gutter.
-- .kilo/ is scratch space for agent probes (gitignored); output/ and
-  data/raw/ are committed deliverables.
+- .kilo/ is scratch space for agent probes (gitignored); output/ (except the
+  on-demand `twitter_interactive.html`) and data/raw/ are committed deliverables.
 
 ## Testing Philosophy
 
@@ -112,8 +113,10 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 
 ### Remaining Known Issues (Tracked)
 
-- **Suite:** 246 collected → **246 passed, 0 xfailed**; coverage **96%**
-  (37 uncovered lines, mostly error/exception paths).
+- **Suite:** 247 collected → **247 passed, 0 xfailed**; coverage **93%**
+  (69 uncovered lines) now that `bls_data.py` and `data_common.py` are included
+  in `--cov`. Those two modules (55% and 67%) account for most of the gap; the
+  rest is error/exception paths. Closing the gap is tracked separately.
 - The former CLI `xfail` markers are gone: their doubles now accept the
   `bls_api_key` argument, and `labor_viz.build` is patched after the pipeline
   doubles are installed.
