@@ -12,7 +12,7 @@ Failure modes considered
 ------------------------
 * HTTP 4xx/5xx and 429 rate limiting -> ``BlsFetchError`` and no poisoned cache.
 * DNS/connection failures -> ``requests.RequestException`` propagates unwrapped
-  (documented contract).
+    (documented contract).
 * Fresh cache -> zero network calls; stale/``refresh`` -> exactly one POST.
 * Corrupt cached JSON -> transparent re-download.
 * Malformed/empty/wrong-shape JSON -> ``BlsFetchError`` carrying the SID.
@@ -121,13 +121,7 @@ def test_parse_bls_coerces_dash_and_non_numeric_to_nan():
             "unparseable response",
         ),
         (
-            json.dumps(
-                {
-                    "series": [
-                        {"seriesID": "X", "data": [{"year": "2020", "period": "M01"}]}
-                    ]
-                }
-            ),
+            json.dumps({"series": [{"seriesID": "X", "data": [{"year": "2020", "period": "M01"}]}]}),
             "unparseable response",
         ),
     ],

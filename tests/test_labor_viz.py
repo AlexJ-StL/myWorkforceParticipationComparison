@@ -154,9 +154,7 @@ def test_reveal_clamps_above_one(hero, t):
 
 
 def test_reveal_panel_b_handoff_boundary(hero):
-    fraction = (hero._panel_b.start - hero._panel_a.start) / (
-        hero._panel_a.end - hero._panel_a.start
-    )
+    fraction = (hero._panel_b.start - hero._panel_a.start) / (hero._panel_a.end - hero._panel_a.start)
     hero.reveal(fraction - 0.001)
     assert hero._panel_b.ax.get_visible() is False
     hero.reveal(fraction + 0.001)
@@ -187,9 +185,7 @@ def test_reveal_panel_hides_milestones_before_their_date(hero):
     hero.reveal(0.1)
     for date, artists in hero._panel_a.artists:
         visible = all(artist.get_visible() for artist in artists)
-        if date <= hero._panel_a.start + 0.1 * (
-            hero._panel_a.end - hero._panel_a.start
-        ):
+        if date <= hero._panel_a.start + 0.1 * (hero._panel_a.end - hero._panel_a.start):
             assert visible or date == earliest  # earliest group may show 1 point
         else:
             assert not visible
@@ -211,9 +207,7 @@ def test_build_static_writes_1600x900_png(synthetic_data, synthetic_stats, outdi
         assert image.size == (1600, 900)
 
 
-def test_build_animated_writes_mp4_when_ffmpeg_available(
-    synthetic_data, synthetic_stats, outdir, monkeypatch
-):
+def test_build_animated_writes_mp4_when_ffmpeg_available(synthetic_data, synthetic_stats, outdir, monkeypatch):
     monkeypatch.setattr(labor_viz, "ANIMATION_FRAMES", 6)
     path = build_animated(synthetic_data, synthetic_stats, outdir)
     if FFMpegWriter(fps=ANIMATION_FPS).isAvailable():
@@ -224,9 +218,7 @@ def test_build_animated_writes_mp4_when_ffmpeg_available(
         pytest.skip("ffmpeg unavailable in this environment")
 
 
-def test_build_animated_falls_back_to_gif_without_ffmpeg(
-    synthetic_data, synthetic_stats, outdir, monkeypatch
-):
+def test_build_animated_falls_back_to_gif_without_ffmpeg(synthetic_data, synthetic_stats, outdir, monkeypatch):
     monkeypatch.setattr(labor_viz, "ANIMATION_FRAMES", 6)
     monkeypatch.setattr(FFMpegWriter, "isAvailable", lambda self: False)
     path = build_animated(synthetic_data, synthetic_stats, outdir)
@@ -235,9 +227,7 @@ def test_build_animated_falls_back_to_gif_without_ffmpeg(
     assert path.stat().st_size > 100
 
 
-def test_build_animated_falls_back_to_gif_on_save_failure(
-    synthetic_data, synthetic_stats, outdir, monkeypatch, capsys
-):
+def test_build_animated_falls_back_to_gif_on_save_failure(synthetic_data, synthetic_stats, outdir, monkeypatch, capsys):
     """D12: the OSError fallback path was entirely unexercised."""
     monkeypatch.setattr(labor_viz, "ANIMATION_FRAMES", 6)
     real_save = FuncAnimation.save
@@ -258,9 +248,7 @@ def test_build_animated_falls_back_to_gif_on_save_failure(
 
 def test_finalize_interactive_html_replaces_title_and_adds_doctype(outdir):
     path = outdir / "page.html"
-    path.write_text(
-        "<html><head><title>plotly-logomark</title></head></html>", encoding="utf-8"
-    )
+    path.write_text("<html><head><title>plotly-logomark</title></head></html>", encoding="utf-8")
     _finalize_interactive_html(path)
     text = path.read_text(encoding="utf-8")
     assert text.startswith("<!DOCTYPE html>\n")
@@ -270,9 +258,7 @@ def test_finalize_interactive_html_replaces_title_and_adds_doctype(outdir):
 
 def test_finalize_interactive_html_is_idempotent(outdir):
     path = outdir / "page.html"
-    path.write_text(
-        "<html><head><title>plotly-logomark</title></head></html>", encoding="utf-8"
-    )
+    path.write_text("<html><head><title>plotly-logomark</title></head></html>", encoding="utf-8")
     _finalize_interactive_html(path)
     once = path.read_text(encoding="utf-8")
     _finalize_interactive_html(path)
@@ -291,9 +277,7 @@ def test_finalize_interactive_html_keeps_existing_doctype(outdir):
     assert text.startswith("<!DOCTYPE html><html>")
 
 
-def test_build_interactive_writes_dark_titled_html(
-    synthetic_data, synthetic_stats, outdir
-):
+def test_build_interactive_writes_dark_titled_html(synthetic_data, synthetic_stats, outdir):
     path = build_interactive(synthetic_data, synthetic_stats, outdir)
     assert path == outdir / "twitter_interactive.html"
     text = path.read_text(encoding="utf-8")

@@ -91,8 +91,7 @@ class TestBLSData:
         for spec in BLS_SERIES:
             spec_attrs = set(spec.__dict__.keys())
             assert required_attrs.issubset(spec_attrs), (
-                f"BLS series {spec.sid} missing attributes: "
-                f"{required_attrs - spec_attrs}"
+                f"BLS series {spec.sid} missing attributes: {required_attrs - spec_attrs}"
             )
 
     def test_bls_series_catalog_consistency(self):

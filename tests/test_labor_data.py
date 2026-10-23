@@ -66,9 +66,7 @@ def monthly_frame() -> pd.DataFrame:
 
 def test_frame_renames_columns_preserving_values():
     raw = {
-        "CIVPART": pd.Series(
-            [58.6, 58.9], index=pd.DatetimeIndex(["2020-02-01", "2020-01-01"])
-        ),
+        "CIVPART": pd.Series([58.6, 58.9], index=pd.DatetimeIndex(["2020-02-01", "2020-01-01"])),
     }
     frame = _frame(raw, {"CIVPART": "rate_total"})
     assert list(frame.columns) == ["rate_total"]
@@ -82,9 +80,7 @@ def test_frame_outer_joins_unequal_spans():
             [1.0, 2.0, 3.0],
             index=pd.DatetimeIndex(["2020-01-01", "2020-02-01", "2020-03-01"]),
         ),
-        "CLF16OV": pd.Series(
-            [10.0, 20.0], index=pd.DatetimeIndex(["2020-02-01", "2020-03-01"])
-        ),
+        "CLF16OV": pd.Series([10.0, 20.0], index=pd.DatetimeIndex(["2020-02-01", "2020-03-01"])),
     }
     frame = _frame(raw, {"CIVPART": "a", "CLF16OV": "b"})
     assert len(frame) == 3
@@ -142,12 +138,8 @@ def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
 
 def test_derived_monthly_weekly_hours_ratio_is_women_over_men(monthly_frame):
     out = _add_derived_monthly(monthly_frame)
-    expected = (
-        monthly_frame["weekly_hours_women"] / monthly_frame["weekly_hours_men"] * 100
-    )
-    np.testing.assert_allclose(
-        out["weekly_hours_ratio_w_m"].to_numpy(), expected.to_numpy()
-    )
+    expected = monthly_frame["weekly_hours_women"] / monthly_frame["weekly_hours_men"] * 100
+    np.testing.assert_allclose(out["weekly_hours_ratio_w_m"].to_numpy(), expected.to_numpy())
 
 
 def test_derived_monthly_zero_denominators_become_nan_not_inf():
@@ -296,11 +288,7 @@ def test_coverage_lists_multiple_missing_periods_in_order():
 
 
 def test_coverage_empty_series_reports_null_spans():
-    raw = {
-        "CIVPART": pd.Series(
-            [np.nan, np.nan], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"])
-        )
-    }
+    raw = {"CIVPART": pd.Series([np.nan, np.nan], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"]))}
     cov = _coverage(raw)
     row = cov.iloc[0]
     assert row["first_obs"] is None
@@ -324,18 +312,9 @@ def test_coverage_unknown_sid_uses_sid_as_label():
 
 
 def test_assemble_builds_all_three_frames(synthetic_data):
-    assert (
-        set(synthetic_data.monthly.columns)
-        == set(MONTHLY_COLUMNS.values()) | MONTHLY_DERIVED
-    )
-    assert (
-        set(synthetic_data.quarterly.columns)
-        == set(QUARTERLY_COLUMNS.values()) | QUARTERLY_DERIVED
-    )
-    assert (
-        set(synthetic_data.hourly.columns)
-        == set(HOURLY_COLUMNS.values()) | HOURLY_DERIVED
-    )
+    assert set(synthetic_data.monthly.columns) == set(MONTHLY_COLUMNS.values()) | MONTHLY_DERIVED
+    assert set(synthetic_data.quarterly.columns) == set(QUARTERLY_COLUMNS.values()) | QUARTERLY_DERIVED
+    assert set(synthetic_data.hourly.columns) == set(HOURLY_COLUMNS.values()) | HOURLY_DERIVED
 
 
 def test_assemble_returns_workforce_data(synthetic_data):
@@ -365,9 +344,7 @@ def test_assemble_preserves_october_2025_gap_in_derived_columns(synthetic_data):
 
 def test_assemble_leads_with_nan_for_short_series(synthetic_data):
     """CES0500000003 starts 2006-03; the hourly frame must show the leading gap."""
-    assert synthetic_data.hourly["ahe_nominal"].first_valid_index() == pd.Timestamp(
-        "2006-03-01"
-    )
+    assert synthetic_data.hourly["ahe_nominal"].first_valid_index() == pd.Timestamp("2006-03-01")
     assert pd.isna(synthetic_data.hourly["ahe_nominal"].iloc[0])
 
 
@@ -385,11 +362,7 @@ def test_assemble_earnings_ratio_matches_series_division(synthetic_data):
     mask = quarterly["weekly_nominal_men"].notna()
     np.testing.assert_allclose(
         quarterly.loc[mask, "earnings_ratio_nominal"].to_numpy(),
-        (
-            quarterly.loc[mask, "weekly_nominal_women"]
-            / quarterly.loc[mask, "weekly_nominal_men"]
-            * 100
-        ).to_numpy(),
+        (quarterly.loc[mask, "weekly_nominal_women"] / quarterly.loc[mask, "weekly_nominal_men"] * 100).to_numpy(),
     )
 
 
@@ -398,11 +371,7 @@ def test_assemble_weekly_hours_ratio_matches_series_division(synthetic_data):
     mask = monthly["weekly_hours_men"].notna() & monthly["weekly_hours_women"].notna()
     np.testing.assert_allclose(
         monthly.loc[mask, "weekly_hours_ratio_w_m"].to_numpy(),
-        (
-            monthly.loc[mask, "weekly_hours_women"]
-            / monthly.loc[mask, "weekly_hours_men"]
-            * 100
-        ).to_numpy(),
+        (monthly.loc[mask, "weekly_hours_women"] / monthly.loc[mask, "weekly_hours_men"] * 100).to_numpy(),
     )
 
 

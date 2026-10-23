@@ -18,9 +18,7 @@ from fred_data import FetchError, fetch_bls_series, fetch_fred_series
 from series import ALL_BLS_SIDS, ALL_FRED_SIDS
 
 VALID_CSV = "observation_date,TEST\n2020-01-01,1.5\n2020-02-01,2.5\n"
-EXTRA_COLUMN_CSV = (
-    "observation_date,TEST,realtime_start\n2020-01-01,1.0,x\n2020-02-01,2.0,y\n"
-)
+EXTRA_COLUMN_CSV = "observation_date,TEST,realtime_start\n2020-01-01,1.0,x\n2020-02-01,2.0,y\n"
 
 
 class _Response:
@@ -260,14 +258,10 @@ def test_fred_corrupt_cache_falls_back_to_redownload(write_cache, fake_get, fred
     fake_get.install(_CsvResponse(fred_csv.replace("TEST", "CIVPART")))
     series = fetch_fred_series("CIVPART")
     assert list(series) == [1.5, 2.5, 3.5]
-    assert (fred_data.CACHE_DIR / "CIVPART.csv").read_text(encoding="utf-8") == (
-        fred_csv.replace("TEST", "CIVPART")
-    )
+    assert (fred_data.CACHE_DIR / "CIVPART.csv").read_text(encoding="utf-8") == (fred_csv.replace("TEST", "CIVPART"))
 
 
-def test_fred_corrupt_cache_with_failed_download_reports_the_download_error(
-    write_cache, fake_get
-):
+def test_fred_corrupt_cache_with_failed_download_reports_the_download_error(write_cache, fake_get):
     write_cache("CIVPART", "garbage", age_days=0.1)
     fake_get.install(_CsvResponse("nope", status_code=500))
     with pytest.raises(FetchError, match="HTTP 500"):
@@ -353,9 +347,7 @@ def test_bls_stale_cache_triggers_refetch(write_cache, fake_get):
     series = fetch_bls_series("LNS12032194")
     assert series.iloc[-1] == 99.0
     assert len(fake_get.calls) == 1
-    assert fake_get.calls[0]["kwargs"].get("json", {}).get("seriesid") == [
-        "LNS12032194"
-    ]
+    assert fake_get.calls[0]["kwargs"].get("json", {}).get("seriesid") == ["LNS12032194"]
 
 
 def test_bls_unknown_sid_fails_before_any_network_call(fake_get):
@@ -379,9 +371,7 @@ def test_fetch_all_returns_every_catalog_series(fake_get, fred_csv):
                         "series": [
                             {
                                 "seriesID": sid,
-                                "data": [
-                                    {"year": "2020", "period": "M01", "value": "1.5"}
-                                ],
+                                "data": [{"year": "2020", "period": "M01", "value": "1.5"}],
                             }
                         ]
                     }
@@ -395,8 +385,7 @@ def test_fetch_all_returns_every_catalog_series(fake_get, fred_csv):
     requested = set()
     for call in fake_get.calls:
         sid = (
-            call["kwargs"].get("params", {}).get("id")
-            or (call["kwargs"].get("json") or {}).get("seriesid", [None])[0]
+            call["kwargs"].get("params", {}).get("id") or (call["kwargs"].get("json") or {}).get("seriesid", [None])[0]
         )
         requested.add(sid)
     assert requested == set(ALL_FRED_SIDS) | set(ALL_BLS_SIDS)

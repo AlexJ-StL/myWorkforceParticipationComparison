@@ -9,10 +9,10 @@ branch (137), and the BLS HTTP-error branch (141).
 Failure modes considered
 ------------------------
 * A truncated/corrupt cached BLS JSON file must trigger a transparent re-download
-  instead of a permanent failure.
+    instead of a permanent failure.
 * An API key supplied to ``fetch_bls_series`` must reach the POST payload.
 * A 404/429/500 BLS response must raise ``FetchError`` and must not poison the
-  cache with the error body.
+    cache with the error body.
 """
 
 from __future__ import annotations

@@ -5,16 +5,16 @@ Target analysis
 ``fred_data.py`` sits at 92% coverage. The two missed branch families are:
 
 * ``_parse_bls_json``'s BLS API v2 ``Results`` wrapper (the format the live
-  endpoint actually returns), including its empty/missing/empty-data variants.
+    endpoint actually returns), including its empty/missing/empty-data variants.
 * ``_parse_fred_csv``'s non-monotonic-date sort branch.
 
 Failure modes considered
 ------------------------
 * BLS silently switches from the legacy top-level ``series`` shape to the v2
-  ``Results.series`` shape -> the parser must still return a correct series.
+    ``Results.series`` shape -> the parser must still return a correct series.
 * BLS returns ``Results`` with an empty or partial series list.
 * FRED returns rows newest-first or shuffled -> the parser must sort index and
-  values together so dates and observations never pair up wrongly.
+    values together so dates and observations never pair up wrongly.
 """
 
 from __future__ import annotations
@@ -85,9 +85,7 @@ def test_parse_bls_json_rejects_bad_results_wrapper(payload, message):
         ),
     ],
 )
-def test_parse_fred_csv_sorts_non_monotonic_dates_and_keeps_values_aligned(
-    rows, expected_values
-):
+def test_parse_fred_csv_sorts_non_monotonic_dates_and_keeps_values_aligned(rows, expected_values):
     text = "observation_date,TEST\n" + rows
 
     series = fred_data._parse_fred_csv(text, "TEST")

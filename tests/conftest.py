@@ -3,14 +3,14 @@
 The synthetic dataset mirrors the shape of the real FRED pipeline:
 
 * monthly series run 1948-01..2026-09; every CPS series **and** CPIAUCSL are NaN
-  at 2025-10 (shutdown), while POPTHM / CES / AHETPI keep a value there;
+    at 2025-10 (shutdown), while POPTHM / CES / AHETPI keep a value there;
 * CES0500000003 starts 2006-03 and AHETPI starts 1964-01, so the hourly frame has
-  leading NaNs;
+    leading NaNs;
 * BLS weekly hours series run 1948-01..2026-09 with Oct 2025 gap;
 * quarterly earnings series run 1979-01..2026-04;
 * labor force levels are constructed so that ``men + women == total`` exactly and
   ``labor_force / population * 100`` reproduces the published rates exactly, so
-  the consistency checks can be pinned to 0.0.
+    the consistency checks can be pinned to 0.0.
 """
 
 from __future__ import annotations
@@ -115,9 +115,7 @@ def _covid_dip(index: pd.DatetimeIndex, depth: float) -> np.ndarray:
         "2020-05-01": -0.6,
         "2020-06-01": -0.3,
     }
-    return (
-        np.array([offsets.get(day.strftime("%Y-%m-%d"), 0.0) for day in index]) * depth
-    )
+    return np.array([offsets.get(day.strftime("%Y-%m-%d"), 0.0) for day in index]) * depth
 
 
 def _build_monthly() -> dict[str, pd.Series]:
@@ -183,15 +181,11 @@ def _build_monthly() -> dict[str, pd.Series]:
         "LNU00000060": pop_prime,
         "LNU00024230": pop_older,
     }
-    out = {
-        sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
-    }
+    out = {sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()}
 
     # CES0500000003 starts 2006-03 in the real cache.
     ces_index = pd.date_range("2006-03-01", MONTHLY_END, freq="MS")
-    out["CES0500000003"] = pd.Series(
-        np.linspace(20.04, 36.85, len(ces_index)), index=ces_index, name="CES0500000003"
-    )
+    out["CES0500000003"] = pd.Series(np.linspace(20.04, 36.85, len(ces_index)), index=ces_index, name="CES0500000003")
 
     for sid in MONTHLY_GAPPED:
         out[sid].loc[pd.Timestamp(GAP_MONTH)] = np.nan
@@ -209,9 +203,7 @@ def _build_quarterly() -> dict[str, pd.Series]:
         "LES1252881900Q": np.linspace(435.0, 445.0, n),
         "LES1252882800Q": np.linspace(260.0, 430.0, n),
     }
-    return {
-        sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
-    }
+    return {sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()}
 
 
 @pytest.fixture
