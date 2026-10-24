@@ -85,7 +85,9 @@ def test_parse_bls_json_rejects_bad_results_wrapper(payload, message):
         ),
     ],
 )
-def test_parse_fred_csv_sorts_non_monotonic_dates_and_keeps_values_aligned(rows, expected_values):
+def test_parse_fred_csv_sorts_non_monotonic_dates_and_keeps_values_aligned(
+    rows, expected_values
+):
     text = "observation_date,TEST\n" + rows
 
     series = fred_data._parse_fred_csv(text, "TEST")

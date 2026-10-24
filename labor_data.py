@@ -36,7 +36,11 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "UNRATE": "unrate_total",
     "LNS14000001": "unrate_men",
     "LNS14000002": "unrate_women",
+    # Macro purchasing-power and public-sector series
     "CPIAUCSL": "cpi",
+    "AHETPI": "ahe_production_nominal",
+    "USPRIV": "employment_private",
+    "USGOVT": "employment_government",
     "POPTHM": "population_all_ages",
     "LNS12032194": "weekly_hours_men",
     "LNS12032195": "weekly_hours_women",
@@ -147,6 +151,21 @@ def _add_derived_monthly(frame: pd.DataFrame) -> pd.DataFrame:
     )
     out["weekly_hours_ratio_w_m"] = _safe_ratio(
         out["weekly_hours_women"], out["weekly_hours_men"]
+    )
+    # Macro purchasing-power and public-sector metrics. Missing observations
+    # (including the October 2025 CPI shutdown gap) remain NaN rather than being
+    # imputed; _safe_ratio converts zero denominators to NaN instead of inf.
+    # USPRIV and CNP16OV are both in thousands, so the ratio is unitless and the
+    # *100 scale expresses private employment as a percent of population.
+    out["purchasing_power_index"] = _safe_ratio(
+        out["ahe_production_nominal"], out["cpi"]
+    )
+    out["private_per_capita"] = _safe_ratio(
+        out["employment_private"], out["population_total"]
+    )
+    out["govt_share_pct"] = _safe_ratio(
+        out["employment_government"],
+        out["employment_private"] + out["employment_government"],
     )
     return out
 

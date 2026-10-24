@@ -33,6 +33,9 @@ MONTHLY_DERIVED = {
     "weekly_hours_ratio_w_m",
     "rate_prime_men",
     "rate_prime_women",
+    "purchasing_power_index",
+    "private_per_capita",
+    "govt_share_pct",
 }
 QUARTERLY_DERIVED = {"earnings_ratio_nominal", "earnings_ratio_real"}
 HOURLY_DERIVED = {"ahe_real", "ahe_production_real"}
@@ -54,6 +57,10 @@ def monthly_frame() -> pd.DataFrame:
             "employment_total": [110.0, 116.0],
             "weekly_hours_men": [40.0, 41.0],
             "weekly_hours_women": [35.0, 36.0],
+            "ahe_production_nominal": [20.0, 30.0],
+            "cpi": [200.0, 150.0],
+            "employment_private": [85.0, 90.0],
+            "employment_government": [15.0, 10.0],
         },
         index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"]),
     )
@@ -66,7 +73,9 @@ def monthly_frame() -> pd.DataFrame:
 
 def test_frame_renames_columns_preserving_values():
     raw = {
-        "CIVPART": pd.Series([58.6, 58.9], index=pd.DatetimeIndex(["2020-02-01", "2020-01-01"])),
+        "CIVPART": pd.Series(
+            [58.6, 58.9], index=pd.DatetimeIndex(["2020-02-01", "2020-01-01"])
+        ),
     }
     frame = _frame(raw, {"CIVPART": "rate_total"})
     assert list(frame.columns) == ["rate_total"]
@@ -80,7 +89,9 @@ def test_frame_outer_joins_unequal_spans():
             [1.0, 2.0, 3.0],
             index=pd.DatetimeIndex(["2020-01-01", "2020-02-01", "2020-03-01"]),
         ),
-        "CLF16OV": pd.Series([10.0, 20.0], index=pd.DatetimeIndex(["2020-02-01", "2020-03-01"])),
+        "CLF16OV": pd.Series(
+            [10.0, 20.0], index=pd.DatetimeIndex(["2020-02-01", "2020-03-01"])
+        ),
     }
     frame = _frame(raw, {"CIVPART": "a", "CLF16OV": "b"})
     assert len(frame) == 3
@@ -128,6 +139,20 @@ def test_derived_monthly_exact_values(monthly_frame):
     assert out["weekly_hours_ratio_w_m"].iloc[0] == pytest.approx(35.0 / 40.0 * 100)
 
 
+def test_derived_monthly_macro_metrics_exact_values(monthly_frame):
+    """Pin the three macro formulas on a hand-built, exactly computable frame."""
+    out = _add_derived_monthly(monthly_frame)
+    # purchasing_power_index = (AHETPI / CPIAUCSL) * 100
+    assert out["purchasing_power_index"].iloc[0] == pytest.approx(10.0)
+    assert out["purchasing_power_index"].iloc[1] == pytest.approx(20.0)
+    # private_per_capita = (USPRIV / CNP16OV) * 100
+    assert out["private_per_capita"].iloc[0] == pytest.approx(42.5)
+    assert out["private_per_capita"].iloc[1] == pytest.approx(45.0)
+    # govt_share_pct = USGOVT / (USPRIV + USGOVT) * 100
+    assert out["govt_share_pct"].iloc[0] == pytest.approx(15.0)
+    assert out["govt_share_pct"].iloc[1] == pytest.approx(10.0)
+
+
 def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
     out = _add_derived_monthly(monthly_frame)
     np.testing.assert_allclose(
@@ -138,8 +163,12 @@ def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
 
 def test_derived_monthly_weekly_hours_ratio_is_women_over_men(monthly_frame):
     out = _add_derived_monthly(monthly_frame)
-    expected = monthly_frame["weekly_hours_women"] / monthly_frame["weekly_hours_men"] * 100
-    np.testing.assert_allclose(out["weekly_hours_ratio_w_m"].to_numpy(), expected.to_numpy())
+    expected = (
+        monthly_frame["weekly_hours_women"] / monthly_frame["weekly_hours_men"] * 100
+    )
+    np.testing.assert_allclose(
+        out["weekly_hours_ratio_w_m"].to_numpy(), expected.to_numpy()
+    )
 
 
 def test_derived_monthly_zero_denominators_become_nan_not_inf():
@@ -157,6 +186,10 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
             "employment_total": [0.0],
             "weekly_hours_men": [0.0],
             "weekly_hours_women": [35.0],
+            "ahe_production_nominal": [0.0],
+            "cpi": [0.0],
+            "employment_private": [0.0],
+            "employment_government": [0.0],
         },
         index=pd.DatetimeIndex(["2020-01-01"]),
     )
@@ -170,6 +203,9 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
         "implied_rate_total",
         "emp_pop_ratio_total",
         "weekly_hours_ratio_w_m",
+        "purchasing_power_index",
+        "private_per_capita",
+        "govt_share_pct",
     }
     for column in division_columns:
         assert pd.isna(out[column].iloc[0]), f"{column} should be NaN"
@@ -180,6 +216,49 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
     # gap_pp is a subtraction (0 - 40 = -40), not NaN
     assert out["gap_pp"].iloc[0] == -40.0
     assert np.isfinite(out["gap_pp"].dropna()).all()
+
+
+def test_derived_monthly_macro_metrics_zero_and_boundary_cases(monthly_frame):
+    """Zero numerators stay 0; one-sided government employment yields 0% or 100%."""
+    frame = monthly_frame.copy()
+    frame["ahe_production_nominal"] = [0.0, 20.0]
+    frame["cpi"] = [200.0, 200.0]
+    frame["employment_private"] = [0.0, 100.0]
+    frame["employment_government"] = [100.0, 0.0]
+    out = _add_derived_monthly(frame)
+
+    # Zero numerator with a positive denominator -> 0.0, not NaN.
+    assert out["purchasing_power_index"].iloc[0] == 0.0
+    assert out["private_per_capita"].iloc[0] == 0.0
+    # All employment is government -> 100%; none -> 0%.
+    assert out["govt_share_pct"].iloc[0] == pytest.approx(100.0)
+    assert out["govt_share_pct"].iloc[1] == 0.0
+    # Non-zero row remains exact.
+    assert out["purchasing_power_index"].iloc[1] == pytest.approx(10.0)
+    assert out["private_per_capita"].iloc[1] == pytest.approx(50.0)
+
+
+@pytest.mark.parametrize(
+    ("raw_column", "metric", "expected_second"),
+    [
+        ("ahe_production_nominal", "purchasing_power_index", 20.0),
+        ("cpi", "purchasing_power_index", 20.0),
+        ("employment_private", "private_per_capita", 45.0),
+        ("population_total", "private_per_capita", 45.0),
+        ("employment_government", "govt_share_pct", 10.0),
+        ("employment_private", "govt_share_pct", 10.0),
+    ],
+)
+def test_derived_monthly_macro_metrics_propagate_nan(
+    monthly_frame, raw_column, metric, expected_second
+):
+    """A single missing input yields NaN in that row only; nothing is imputed."""
+    frame = monthly_frame.copy()
+    frame.loc[frame.index[0], raw_column] = np.nan
+    out = _add_derived_monthly(frame)
+    assert pd.isna(out[metric].iloc[0])
+    assert out[metric].iloc[1] == pytest.approx(expected_second)
+    assert out[metric].isna().sum() == 1
 
 
 def test_derived_monthly_does_not_mutate_input(monthly_frame):
@@ -288,7 +367,11 @@ def test_coverage_lists_multiple_missing_periods_in_order():
 
 
 def test_coverage_empty_series_reports_null_spans():
-    raw = {"CIVPART": pd.Series([np.nan, np.nan], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"]))}
+    raw = {
+        "CIVPART": pd.Series(
+            [np.nan, np.nan], index=pd.DatetimeIndex(["2020-01-01", "2020-02-01"])
+        )
+    }
     cov = _coverage(raw)
     row = cov.iloc[0]
     assert row["first_obs"] is None
@@ -312,9 +395,18 @@ def test_coverage_unknown_sid_uses_sid_as_label():
 
 
 def test_assemble_builds_all_three_frames(synthetic_data):
-    assert set(synthetic_data.monthly.columns) == set(MONTHLY_COLUMNS.values()) | MONTHLY_DERIVED
-    assert set(synthetic_data.quarterly.columns) == set(QUARTERLY_COLUMNS.values()) | QUARTERLY_DERIVED
-    assert set(synthetic_data.hourly.columns) == set(HOURLY_COLUMNS.values()) | HOURLY_DERIVED
+    assert (
+        set(synthetic_data.monthly.columns)
+        == set(MONTHLY_COLUMNS.values()) | MONTHLY_DERIVED
+    )
+    assert (
+        set(synthetic_data.quarterly.columns)
+        == set(QUARTERLY_COLUMNS.values()) | QUARTERLY_DERIVED
+    )
+    assert (
+        set(synthetic_data.hourly.columns)
+        == set(HOURLY_COLUMNS.values()) | HOURLY_DERIVED
+    )
 
 
 def test_assemble_returns_workforce_data(synthetic_data):
@@ -340,11 +432,18 @@ def test_assemble_preserves_october_2025_gap_in_derived_columns(synthetic_data):
     # BLS weekly hours should also have the gap
     assert pd.isna(gap_row["weekly_hours_men"])
     assert pd.isna(gap_row["weekly_hours_women"])
+    # CPI and population are gapped while establishment employment is not, so
+    # purchasing power and private-per-capita are NaN but government share is not.
+    assert pd.isna(gap_row["purchasing_power_index"])
+    assert pd.isna(gap_row["private_per_capita"])
+    assert np.isfinite(gap_row["govt_share_pct"])
 
 
 def test_assemble_leads_with_nan_for_short_series(synthetic_data):
     """CES0500000003 starts 2006-03; the hourly frame must show the leading gap."""
-    assert synthetic_data.hourly["ahe_nominal"].first_valid_index() == pd.Timestamp("2006-03-01")
+    assert synthetic_data.hourly["ahe_nominal"].first_valid_index() == pd.Timestamp(
+        "2006-03-01"
+    )
     assert pd.isna(synthetic_data.hourly["ahe_nominal"].iloc[0])
 
 
@@ -362,7 +461,11 @@ def test_assemble_earnings_ratio_matches_series_division(synthetic_data):
     mask = quarterly["weekly_nominal_men"].notna()
     np.testing.assert_allclose(
         quarterly.loc[mask, "earnings_ratio_nominal"].to_numpy(),
-        (quarterly.loc[mask, "weekly_nominal_women"] / quarterly.loc[mask, "weekly_nominal_men"] * 100).to_numpy(),
+        (
+            quarterly.loc[mask, "weekly_nominal_women"]
+            / quarterly.loc[mask, "weekly_nominal_men"]
+            * 100
+        ).to_numpy(),
     )
 
 
@@ -371,7 +474,47 @@ def test_assemble_weekly_hours_ratio_matches_series_division(synthetic_data):
     mask = monthly["weekly_hours_men"].notna() & monthly["weekly_hours_women"].notna()
     np.testing.assert_allclose(
         monthly.loc[mask, "weekly_hours_ratio_w_m"].to_numpy(),
-        (monthly.loc[mask, "weekly_hours_women"] / monthly.loc[mask, "weekly_hours_men"] * 100).to_numpy(),
+        (
+            monthly.loc[mask, "weekly_hours_women"]
+            / monthly.loc[mask, "weekly_hours_men"]
+            * 100
+        ).to_numpy(),
+    )
+
+
+def test_assemble_macro_metrics_match_series_division(synthetic_data):
+    """Integration check: the three new columns are plain ratios of raw series."""
+    monthly = synthetic_data.monthly
+
+    mask = monthly["ahe_production_nominal"].notna() & monthly["cpi"].notna()
+    np.testing.assert_allclose(
+        monthly.loc[mask, "purchasing_power_index"].to_numpy(),
+        (
+            monthly.loc[mask, "ahe_production_nominal"] / monthly.loc[mask, "cpi"] * 100
+        ).to_numpy(),
+    )
+
+    mask = monthly["employment_private"].notna() & monthly["population_total"].notna()
+    np.testing.assert_allclose(
+        monthly.loc[mask, "private_per_capita"].to_numpy(),
+        (
+            monthly.loc[mask, "employment_private"]
+            / monthly.loc[mask, "population_total"]
+            * 100
+        ).to_numpy(),
+    )
+
+    denominator = monthly["employment_private"] + monthly["employment_government"]
+    mask = (
+        monthly["employment_private"].notna()
+        & monthly["employment_government"].notna()
+        & (denominator != 0)
+    )
+    np.testing.assert_allclose(
+        monthly.loc[mask, "govt_share_pct"].to_numpy(),
+        (
+            monthly.loc[mask, "employment_government"] / denominator.loc[mask] * 100
+        ).to_numpy(),
     )
 
 

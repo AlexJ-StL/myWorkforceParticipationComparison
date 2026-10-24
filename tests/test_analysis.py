@@ -730,7 +730,7 @@ def test_compute_stats_implied_matches_published_on_synthetic_data(synthetic_sta
 
 def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
     coverage = synthetic_stats["coverage"]
-    assert coverage["series_count"] == 32  # 30 FRED + 2 BLS
+    assert coverage["series_count"] == 35  # 33 FRED + 2 BLS
     assert coverage["missing_periods"] == ["2025-10"]
     assert coverage["monthly_span"] == "1948-01..2026-09"
     assert coverage["earnings_span"] == "1979-01..2026-04"
@@ -1048,7 +1048,7 @@ def test_header_reports_generation_and_span(render_stats):
     text = analysis._header(render_stats)
     assert text.startswith("# U.S. Workforce Participation: Findings\n\n")
     assert "Generated " in text
-    assert "30 FRED series and 2 BLS series" in text
+    assert "33 FRED series and 2 BLS series" in text
     assert "1948-01..2026-09 monthly" in text
     assert "1979-01..2026-04 quarterly earnings" in text
     assert "October 2025" in text

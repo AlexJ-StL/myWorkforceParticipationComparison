@@ -3,11 +3,12 @@
 The synthetic dataset mirrors the shape of the real FRED pipeline:
 
 * monthly series run 1948-01..2026-09; every CPS series **and** CPIAUCSL are NaN
-    at 2025-10 (shutdown), while POPTHM / CES / AHETPI keep a value there;
+    at 2025-10 (shutdown), while POPTHM / CES / AHETPI / USPRIV / USGOVT keep a
+    value there;
 * CES0500000003 starts 2006-03 and AHETPI starts 1964-01, so the hourly frame has
     leading NaNs;
 * BLS weekly hours series run 1948-01..2026-09 with Oct 2025 gap;
-* quarterly earnings series run 1979-01..2026-04;
+* quarterly earnings and federal-debt series run 1979-01..2026-04;
 * labor force levels are constructed so that ``men + women == total`` exactly and
   ``labor_force / population * 100`` reproduces the published rates exactly, so
     the consistency checks can be pinned to 0.0.
@@ -115,7 +116,9 @@ def _covid_dip(index: pd.DatetimeIndex, depth: float) -> np.ndarray:
         "2020-05-01": -0.6,
         "2020-06-01": -0.3,
     }
-    return np.array([offsets.get(day.strftime("%Y-%m-%d"), 0.0) for day in index]) * depth
+    return (
+        np.array([offsets.get(day.strftime("%Y-%m-%d"), 0.0) for day in index]) * depth
+    )
 
 
 def _build_monthly() -> dict[str, pd.Series]:
@@ -140,6 +143,9 @@ def _build_monthly() -> dict[str, pd.Series]:
     lf_total = lf_men + lf_women
 
     employment = lf_total * 0.94
+    govt_share = np.linspace(0.16, 0.14, n)
+    govt_employment = employment * govt_share
+    private_employment = employment - govt_employment
     unrate = np.linspace(3.8, 4.6, n)
 
     youth_share = np.linspace(0.20, 0.17, n)
@@ -165,6 +171,8 @@ def _build_monthly() -> dict[str, pd.Series]:
         "LNU00000001": pop_men,
         "LNU00000002": pop_women,
         "CE16OV": employment,
+        "USPRIV": private_employment,
+        "USGOVT": govt_employment,
         "LNS12000001": lf_men * 0.94,
         "LNS12000002": lf_women * 0.94,
         "UNRATE": unrate,
@@ -181,11 +189,15 @@ def _build_monthly() -> dict[str, pd.Series]:
         "LNU00000060": pop_prime,
         "LNU00024230": pop_older,
     }
-    out = {sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()}
+    out = {
+        sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
+    }
 
     # CES0500000003 starts 2006-03 in the real cache.
     ces_index = pd.date_range("2006-03-01", MONTHLY_END, freq="MS")
-    out["CES0500000003"] = pd.Series(np.linspace(20.04, 36.85, len(ces_index)), index=ces_index, name="CES0500000003")
+    out["CES0500000003"] = pd.Series(
+        np.linspace(20.04, 36.85, len(ces_index)), index=ces_index, name="CES0500000003"
+    )
 
     for sid in MONTHLY_GAPPED:
         out[sid].loc[pd.Timestamp(GAP_MONTH)] = np.nan
@@ -202,8 +214,11 @@ def _build_quarterly() -> dict[str, pd.Series]:
         "LES1252881600Q": np.linspace(380.0, 455.0, n),
         "LES1252881900Q": np.linspace(435.0, 445.0, n),
         "LES1252882800Q": np.linspace(260.0, 430.0, n),
+        "GFDEGDQ188S": np.linspace(31.0, 122.0, n),
     }
-    return {sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()}
+    return {
+        sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
+    }
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 Sex = Literal["total", "men", "women"]
-Track = Literal["rate", "level", "price", "earnings_nominal", "earnings_real"]
+Track = Literal["rate", "level", "price", "earnings_nominal", "earnings_real", "debt"]
 
 PALETTE = {
     "bg": "#15202b",
@@ -40,6 +40,7 @@ class SeriesSpec:
     sex: Sex
     units: str
     seasonal: str = "SA"
+    color: str = PALETTE["total"]
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,28 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
         "women",
         "thousands",
     ),
+    # Establishment-survey employment: total private and government
+    # (thousands, monthly, SA)
+    SeriesSpec(
+        "USPRIV",
+        "All Employees, Total Private",
+        "Private",
+        "level",
+        "total",
+        "thousands",
+        "SA",
+        color=PALETTE["total"],
+    ),
+    SeriesSpec(
+        "USGOVT",
+        "All Employees, Government",
+        "Government",
+        "level",
+        "total",
+        "thousands",
+        "SA",
+        color=PALETTE["accent"],
+    ),
     # Unemployment rates (%, monthly, SA)
     SeriesSpec("UNRATE", "Unemployment Rate", "All", "rate", "total", "percent"),
     SeriesSpec(
@@ -153,11 +176,12 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
     ),
     SeriesSpec(
         "AHETPI",
-        "Average Hourly Earnings, Production & Nonsupervisory (1964+)",
-        "All",
+        "Average Hourly Earnings of Production and Nonsupervisory Employees, Total Private",
+        "AHE production",
         "earnings_nominal",
         "total",
         "dollars_per_hour",
+        color=PALETTE["accent"],
     ),
     # Median usual weekly earnings, full-time wage & salary workers (nominal $, quarterly)
     SeriesSpec(
@@ -218,12 +242,24 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
     # Price index
     SeriesSpec(
         "CPIAUCSL",
-        "Consumer Price Index for All Urban Consumers",
-        "All",
+        "Consumer Price Index for All Urban Consumers: All Items",
+        "CPI",
         "price",
         "total",
         "index",
         "SA",
+        color=PALETTE["muted"],
+    ),
+    # Federal fiscal context (percent of GDP, quarterly, SA)
+    SeriesSpec(
+        "GFDEGDQ188S",
+        "Federal Debt: Total Public Debt as Percent of Gross Domestic Product",
+        "Debt/GDP",
+        "debt",
+        "total",
+        "percent",
+        "SA",
+        color=PALETTE["muted"],
     ),
     # Total US population (monthly, SA) -- context only
     SeriesSpec("POPTHM", "Total US Population", "All", "level", "total", "thousands"),
