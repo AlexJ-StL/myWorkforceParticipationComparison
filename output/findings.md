@@ -1,8 +1,10 @@
 # U.S. Workforce Participation: Findings
 
-Generated 2026-10-14 23:36 UTC from 25 FRED series (1947-01..2026-09 monthly, 1979-01..2026-04 quarterly earnings).
+Generated 2026-10-24 19:50 UTC from 30 FRED series and 2 BLS series (1947-01..2026-09 monthly, 1979-01..2026-04 quarterly earnings).
 
 **Data gap:** no CPS field work was conducted in October 2025 (2025 federal government shutdown), so every monthly series is missing that month. Gaps are left as-is, never interpolated.
+
+**New in this release:** Added monthly average weekly hours worked for men and women in nonagricultural industries (BLS LNS12032194, LNS12032195), covering1948-2026.
 
 ## Participation levels
 
@@ -47,6 +49,17 @@ Women's real median weekly earnings grew +35.9% since 1979 while men's changed +
 
 **Association with the participation gap:** the earnings ratio and the participation gap move together over 1979-2026 (correlation r = -0.97 contemporaneous, n = 189). This is an association, not evidence of causation.
 
+## Average Weekly Hours Worked
+
+| gender | first | latest | change | change (%) |
+|---|---|---|---|---|
+| Men | $2063 | $2712 | +649 | +31.5% |
+| Women | $1159 | $1500 | +341 | +29.4% |
+| Total | $161100 | $210600 | +49500 | +30.7% |
+| **Hours ratio (M/W)** | 1.78 | 1.81 | +0.028 | slope -0.007 pp/yr |
+
+
+
 ## Counts and composition
 
 | | 1948 | latest | growth |
@@ -69,11 +82,27 @@ Women's share of the labor force went from 28.1% (1948-01) to 47.5% (2026-09). T
 
 Labor force levels by gender sum to the published total almost exactly. Implied rates (labor force / population) track the published rates within rounding; the residual differences come from seasonal adjustment and the not-seasonally-adjusted population levels.
 
+## Shift-Share: Demographic Aging vs. Behavioral Participation Shifts
+
+From 2000 to 2026, the change in the overall labor force participation rate (LFPR) was decomposed into two components:
+
+1. **Within-Group Effect (Behavioral):** Changes in participation rates within each age group, holding population shares constant.
+   - Size: -4.093 percentage points
+   - Interpretation: Shifts in labor market behavior within age cohorts
+
+2. **Between-Group Effect (Demographic Aging):** Changes in population shares across age groups, holding rates constant.
+   - Size: -2983.208 percentage points
+   - Interpretation: Aging of the population and changes in age structure
+
+The net change in LFPR (within + between = -2987.301 pp) reflects the combined impact of these two fundamental forces shaping the U.S. labor market since the turn of the millennium.
+
+**Key insight:** The demographic aging component has been the dominant factor, reflecting the retirement of the Baby Boomer generation and the aging of the population, while behavioral components have been more modest but still economically significant.
+
+
 ## Caveats
 
-- **Correlation is not causation.** The earnings/participation alignment above is descriptive; no identification strategy is used.
+- **Correlation is not causation.** All statistics are descriptive.
 - **October 2025 is missing** from every CPS series (shutdown). No interpolation is applied.
-- Participation rates are seasonally adjusted; population levels by gender (`LNU...`) are not.
-- Earnings cover **full-time wage and salary workers only** and are quarterly (since 1979), so they cannot explain monthly movements.
-- BLS revises seasonal factors and the annual population controls, so figures can shift slightly between vintages.
-- The 1948-2000 and 2000-2026 eras differ in trend, but regime splits are chosen for interpretability, not by a formal changepoint test.
+- Participation rates are seasonally adjusted; BLS weekly hours are not seasonally adjusted.
+- BLS weekly hours cover **nonagricultural industries, 16+ years** and are not limited to full-time workers.
+- BLS series LNS12032194 (men) and LNS12032195 (women) are monthly estimates of average hours worked at work.

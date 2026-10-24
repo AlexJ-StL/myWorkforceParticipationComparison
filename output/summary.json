@@ -53,56 +53,56 @@
   "regimes": {
     "1948-2000": {
       "rate_men": {
-        "slope_pp_per_year": -0.2483498385011645,
+        "slope_pp_per_year": -0.24834983850116416,
         "r2": 0.9395381261750991
       },
       "rate_women": {
-        "slope_pp_per_year": 0.5955332983335612,
+        "slope_pp_per_year": 0.595533298333562,
         "r2": 0.9820125741634611
       },
       "rate_total": {
-        "slope_pp_per_year": 0.19413288454016805,
+        "slope_pp_per_year": 0.1941328845401683,
         "r2": 0.9000914279388545
       },
       "gap_pp": {
-        "slope_pp_per_year": -0.8438831368347262,
+        "slope_pp_per_year": -0.8438831368347256,
         "r2": 0.9894418067749814
       }
     },
     "2000-2019": {
       "rate_men": {
-        "slope_pp_per_year": -0.34922012534939806,
-        "r2": 0.9329922523069536
+        "slope_pp_per_year": -0.3492201253493973,
+        "r2": 0.9329922523069537
       },
       "rate_women": {
-        "slope_pp_per_year": -0.1822479556936744,
-        "r2": 0.8355465358342616
+        "slope_pp_per_year": -0.18224795569367455,
+        "r2": 0.8355465358342615
       },
       "rate_total": {
-        "slope_pp_per_year": -0.26063994166565396,
-        "r2": 0.906969541938614
+        "slope_pp_per_year": -0.2606399416656533,
+        "r2": 0.9069695419386141
       },
       "gap_pp": {
-        "slope_pp_per_year": -0.16697216965572317,
-        "r2": 0.8870506588055267
+        "slope_pp_per_year": -0.16697216965572287,
+        "r2": 0.8870506588055266
       }
     },
     "2019-2026": {
       "rate_men": {
-        "slope_pp_per_year": -0.14280262104106387,
-        "r2": 0.24692924936075278
+        "slope_pp_per_year": -0.14280262104106536,
+        "r2": 0.24692924936075344
       },
       "rate_women": {
-        "slope_pp_per_year": 0.07749787305197783,
-        "r2": 0.06963299695139669
+        "slope_pp_per_year": 0.07749787305197743,
+        "r2": 0.06963299695139646
       },
       "rate_total": {
-        "slope_pp_per_year": -0.025587618444444682,
-        "r2": 0.009292971157489949
+        "slope_pp_per_year": -0.02558761844444437,
+        "r2": 0.009292971157489727
       },
       "gap_pp": {
-        "slope_pp_per_year": -0.22030049409304117,
-        "r2": 0.7557413732250233
+        "slope_pp_per_year": -0.22030049409304128,
+        "r2": 0.7557413732250234
       }
     }
   },
@@ -139,6 +139,44 @@
       "recovered": true,
       "recovered_date": "2024-08",
       "months_to_recover": 52
+    }
+  },
+  "weekly_hours": {
+    "series": {
+      "men": {
+        "first": 2063.0,
+        "first_date": "1955-05",
+        "latest": 2712.0,
+        "latest_date": "1957-12",
+        "change": 649.0,
+        "change_pct": 31.459040232670876
+      },
+      "women": {
+        "first": 1159.0,
+        "first_date": "1955-05",
+        "latest": 1500.0,
+        "latest_date": "1957-12",
+        "change": 341.0,
+        "change_pct": 29.421915444348578
+      },
+      "total": {
+        "first": 161100.0,
+        "first_date": "1955-05",
+        "latest": 210600.0,
+        "latest_date": "1957-12",
+        "change": 49500.0,
+        "change_pct": 30.72625698324023
+      }
+    },
+    "ratios": {
+      "hours_ratio_men_women": {
+        "first": 1.7799827437446074,
+        "first_date": "1955-05",
+        "latest": 1.808,
+        "latest_date": "1957-12",
+        "change": 0.028017256255392642,
+        "slope_pp_per_year": -0.007434066538338409
+      }
     }
   },
   "earnings": {
@@ -181,8 +219,8 @@
         "latest": 82.31884057971014,
         "latest_date": "2026-04",
         "change_pp": 20.616712920135676,
-        "slope_pp_per_year": 0.4123167506212037,
-        "r2": 0.8632149181787275
+        "slope_pp_per_year": 0.4123167506212041,
+        "r2": 0.8632149181787274
       },
       "real": {
         "first": 61.51960784313726,
@@ -190,7 +228,7 @@
         "latest": 82.3671497584541,
         "latest_date": "2026-04",
         "change_pp": 20.847541915316846,
-        "slope_pp_per_year": 0.4114925950722624,
+        "slope_pp_per_year": 0.41149259507226227,
         "r2": 0.8636491665262728
       }
     },
@@ -276,11 +314,18 @@
     }
   },
   "coverage": {
-    "series_count": 25,
+    "series_count": 32,
     "monthly_span": "1947-01..2026-09",
     "earnings_span": "1979-01..2026-04",
     "missing_periods": [
       "2025-10"
     ]
+  },
+  "shift_share": {
+    "within_group_effect": -4.0929249979852695,
+    "between_group_effect": -2983.207663520727,
+    "cumulative_within_group": -4.0929249979852695,
+    "cumulative_between_group": -2983.207663520727,
+    "year": 2026
   }
 }

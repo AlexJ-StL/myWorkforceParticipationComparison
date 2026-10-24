@@ -3,6 +3,18 @@
 Analysis and visualization of U.S. workforce participation (men vs women),
 built for a Twitter-ready chart.
 
+## Analytical Integrity & Engineering Philosophy
+
+1. **Data Neutrality & Uncompromising Transparency**
+   - Present all primary and derived metrics strictly, objectively, and without editorial bias or speculative narrative framing.
+   - Never alter, interpolate, or artificially smooth underlying data to fit a narrative.
+   - Preserve data gaps transparently as `NaN` (e.g., the October 2025 shutdown gap) and document anomalous events explicitly in code comments and outputs.
+
+2. **Non-Performative, Rigorous Testing**
+   - Write tests that pin mathematical correctness, edge cases, missing-data propagation, and boundary conditions.
+   - High test coverage (target >= 95%) is an authentic byproduct of thorough verification, never a goal achieved through superficial or trivial assertions.
+   - Every derived metric calculation must have explicit mathematical test assertions on controlled input vectors.
+
 ## Setup
 
 All dependencies live in the pixi environment — always work inside it:
@@ -111,7 +123,7 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 | D2 | fred_data.fetch_series | Corrupt cache → permanent failure | **FIXED**: auto re-download |
 | D3 | labor_data._frame | Missing sid → bare KeyError | **PINNED** (programming error) |
 | D4 | labor_data._coverage | Non-catalog sid → KeyError | **PINNED** |
-| D5 | labor_data._add_derived_* | Zero denominators → inf/NaN | **FIXED**: _safe_ratio guard |
+| D5 | labor_data.*add_derived** | Zero denominators → inf/NaN | **FIXED**: _safe_ratio guard |
 | D6 | analysis._series_summary | All-NaN → unhandled ValueError | **FIXED**: EmptySeriesError |
 | D7 | analysis._earnings_stats | All-NaN → unhandled IndexError | **FIXED**: EmptySeriesError |
 | D8 | _alignment_stats + renderer | Empty join → {} → KeyError | **FIXED**: EmptySeriesError |
