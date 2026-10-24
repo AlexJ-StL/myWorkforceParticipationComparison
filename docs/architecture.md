@@ -1,8 +1,9 @@
 # Architecture
 
-The project is a linear, five-stage data pipeline. Each stage has a single
-responsibility and a narrow interface, which keeps the statistical math testable
-in isolation from network I/O and rendering.
+The project is a linear, five-stage data pipeline built from six Python
+modules (five pipeline stages plus the shared `data_common.py` helpers). Each
+stage has a single responsibility and a narrow interface, which keeps the
+statistical math testable in isolation from network I/O and rendering.
 
 ## Pipeline overview
 
@@ -24,15 +25,16 @@ flowchart TD
 series.py ──▶ fred_data.py ──▶ labor_data.py ──▶ analysis.compute_stats()
                     │                                  │
                     ▼                                  ├──▶ render_report() ──▶ findings.md + summary.json
-             data/raw/*.csv                            └──▶ labor_viz.build_*() ──▶ png / mp4 / html
+             data/raw/*.{csv,json}                     └──▶ labor_viz.build_*() ──▶ png / mp4 / html
 ```
 
 ## Modules
 
 | Module | Responsibility | Key public surface |
 |---|---|---|
-| `series.py` | Static catalog of the 30 FRED and 2 BLS series: IDs, labels, units, seasonality, gender/track tags, and the chart `PALETTE`. No I/O. | `SERIES`, `BLS_SERIES`, `BY_SID`, `ALL_SIDS`, `PALETTE`, `SeriesSpec`, `BlsSeriesSpec`, `sid()` |
-| `fred_data.py` | Fetch FRED CSVs and optional BLS weekly-hours series over HTTP, cache them under `data/raw/`, and parse them into named `pd.Series`. | `fetch_series()`, `fetch_bls_series()`, `fetch_all()`, `clear_cache()`, `FetchError` |
+| `series.py` | Static catalog of the 30 FRED and 2 BLS series: IDs, labels, units, seasonality, gender/track tags, and the chart `PALETTE`. No I/O. | `FRED_SERIES`, `BLS_SERIES`, `BY_SID`, `BLS_BY_SID`, `ALL_FRED_SIDS`, `ALL_BLS_SIDS`, `PALETTE`, `SeriesSpec`, `BlsSeriesSpec`, `sid()` |
+| `data_common.py` | Shared, I/O-free parsing and cache helpers. | `_is_stale()`, `_extract_year_month()`, `_year_month_to_ordinal()` |
+| `fred_data.py` | Fetch FRED CSVs and BLS series over HTTP, cache them under `data/raw/`, and parse them into named `pd.Series`. The current BLS IDs are mislabeled (see [data.md](data.md#bls-series-known-defect)). | `fetch_fred_series()`, `fetch_bls_series()`, `fetch_all()`, `clear_cache()`, `FetchError` (`FredFetchError` alias) |
 | `labor_data.py` | Join the cached series into three analysis-ready frames and add derived columns; build the per-series coverage report. | `build()`, `assemble()`, `WorkforceData` |
 | `analysis.py` | Compute every headline statistic and render the findings report. Also the analysis CLI. | `compute_stats()`, `render_report()`, `col()`, `EmptySeriesError`, `main()` |
 | `labor_viz.py` | Render the static hero PNG, the animated reveal, and the interactive HTML. Also the viz CLI. | `HeroFigure`, `build_static()`, `build_animated()`, `build_interactive()`, `main()` |
@@ -40,17 +42,18 @@ series.py ──▶ fred_data.py ──▶ labor_data.py ──▶ analysis.comp
 ## Data flow
 
 1. **Catalog → fetch.** `fred_data.fetch_all()` iterates `series.BY_SID` and
-   calls `fetch_series()` for each ID. A series is served from the cache when
-   the cached file is present and younger than `CACHE_MAX_AGE_DAYS` (30); it is
-   otherwise downloaded from `https://fred.stlouisfed.org/graph/fredgraph.csv`
-   and written back to `data/raw/<sid>.csv`.
+   `series.BLS_BY_SID`, calling `fetch_fred_series()` / `fetch_bls_series()` for
+   each ID. A series is served from the cache when the cached file is present
+   and younger than `CACHE_MAX_AGE_DAYS` (30); it is otherwise downloaded and
+   written back to `data/raw/<sid>.csv` (FRED) or `data/raw/<sid>.json` (BLS).
 2. **Fetch → assemble.** `labor_data.assemble()` receives the
    `dict[sid, Series]` mapping. `_frame()` joins the selected series into a
    single column-renamed, index-sorted frame per frequency (monthly, quarterly,
    hourly). `_add_derived_*()` layers computed columns on top.
 3. **Assemble → stats.** `analysis.compute_stats()` reads the frames and returns
    one nested dictionary (`stats`) containing every number the report and the
-   charts display.
+   charts display, including the experimental weekly-hours block and the
+   shift-share decomposition.
 4. **Stats → outputs.** `render_report()` turns `stats` into markdown;
    `main()` writes `findings.md` and `summary.json`. `labor_viz.build_*()`
    consume the *same* `stats` dict plus the frames to draw the visuals.
@@ -76,7 +79,8 @@ The pipeline distinguishes three failure classes:
 Design notes:
 
 - **Corrupt cache is self-healing.** If a cached file exists but fails to parse,
-  `fetch_series()` discards it and re-downloads (defect **D2**).
+  `fetch_fred_series()` / `fetch_bls_series()` discard it and re-download
+  (defect **D2**).
 - **Zero denominators become `NaN`.** `labor_data._safe_ratio()` masks
   divide-by-zero results so `inf`/`NaN` never leak into stats or JSON
   (defect **D5**).
@@ -84,10 +88,11 @@ Design notes:
   with no observed values raises rather than letting a downstream renderer
   index into an empty mapping much later (the failure mode of defects **D6–D10**).
 - **CLI failure UX is uniform.** Both `analysis.main()` and `labor_viz.main()`
-  catch `(FredFetchError, requests.RequestException)` and terminate with a
-  non-zero `SystemExit` (**D11**); `analysis.main()` calls
+  catch `(FetchError, requests.RequestException)` and terminate with a non-zero
+  `SystemExit` (**D11**); `analysis.main()` calls
   `sys.exit("Execution Error: …")` and `labor_viz.main()` prints the message and
-  raises `SystemExit(1)`.
+  raises `SystemExit(1)`. `labor_viz.py` still imports the `FredFetchError`
+  alias for backward compatibility.
 
 The defect register with full dispositions lives in
 [../AGENTS.md](../AGENTS.md#defect-register--disposition) and is summarised in
@@ -95,17 +100,19 @@ The defect register with full dispositions lives in
 
 ## Caching model
 
-- **Location:** `data/raw/<sid>.csv`, written verbatim as returned by FRED.
+- **Location:** `data/raw/<sid>.csv` for FRED and `data/raw/<sid>.json` for BLS,
+  written verbatim as returned by the API.
 - **Freshness:** a hit is used when its age is **≤** `CACHE_MAX_AGE_DAYS` (30).
   Staleness is strictly *older than* the budget; exactly 30 days is fresh.
 - **Refresh:** `refresh=True` (CLI `--refresh`) forces a download regardless of
   age.
 - **Timeout:** every request uses `REQUEST_TIMEOUT_SECONDS` (30).
-- **Clearing:** `fred_data.clear_cache()` deletes `*.csv` only, leaving other
-  files untouched.
+- **Clearing:** `fred_data.clear_cache()` deletes every file matching `*.*` in
+  `data/raw/` (both FRED CSVs and BLS JSON).
 
-The cached CSVs are **committed** so analyses are reproducible offline and FRED
-is not re-hit on every run.
+The cached files are **committed** so analyses are reproducible offline and the
+APIs are not re-hit on every run. The current BLS JSON files are known-bad; see
+[data.md](data.md#bls-series-known-defect).
 
 ## CLI entry points
 

@@ -18,7 +18,7 @@ plotly, pillow, ffmpeg, ruff. No system-level Python packages are used.
 
 | Command | What it does |
 | --- | --- |
-| pixi run fetch | Download every FRED series into data/raw/ (cached 30 days) |
+| pixi run fetch | Download every FRED and BLS series into data/raw/ (cached 30 days) |
 | pixi run analyze | Regenerate output/findings.md + output/summary.json |
 | pixi run viz | Build all three visuals in output/ |
 | pixi run viz --static | Only output/twitter_hero.png (1600x900) |
@@ -37,7 +37,8 @@ re-download from FRED: pixi run analyze --refresh.
 
 | File | Role |
 | --- | --- |
-| series.py | FRED series catalog: IDs, labels, units, colors (PALETTE) |
+| series.py | FRED/BLS series catalog: IDs, labels, units, colors (PALETTE) |
+| data_common.py | Shared cache-staleness and date helpers (no I/O) |
 | fred_data.py | FRED CSV + BLS API v2 client with a local cache; defines FetchError |
 | labor_data.py | Assembles monthly / quarterly / hourly frames + coverage |
 | analysis.py | compute_stats() (every headline number) + findings renderer |
@@ -47,19 +48,30 @@ analysis.compute_stats() is the single source of truth for every number
 that appears in the report **and** on the charts — never hardcode a figure
 into a visualization; read it from stats.
 
-## Shift-Share & Demographic Analysis Specifications
+## Shift-Share & Demographic Analysis Status
 
-- **New Modules/Functions:**
-  - `series.py`: Add catalog mappings for `CIVPART`, `LNS11300060` (Prime Total), `LNS11324230` (55+), and population series (`LNU00000012`, `LNU00000060`, `LNU00024230`). FRED does not publish prime-age LFPR by sex, so `rate_prime_men` / `rate_prime_women` are derived from the 16+ gender series (`LNS11300001` / `LNS11300002`).
-  - `analysis.py`: Add `calculate_shift_share(df_pop, df_lfpr, base_year=2000)` to decompose LFPR change into Within-Group (behavioral) and Between-Group (demographic aging) effects.
-  - `labor_viz.py`: Add dual-panel chart rendering (Headline vs. Prime-Age top panel; Shift-Share decomposition bottom panel).
-- **Data Rules:** Population shares $w_{i,t} = \text{Pop}_i / \text{Pop}_{\text{total}}$ must be computed on annual resampled means before matrix operations.
+Implemented but **not publishable**:
+
+- `series.py` has the demographic mappings (`LNS11300060`, `LNS11324230`, `LNU00000012`, `LNU00000060`, `LNU00024230`). FRED does not publish prime-age LFPR by sex, so `rate_prime_men` / `rate_prime_women` are 16+ proxies (`LNS11300001` / `LNS11300002`), not true prime-age rates.
+- `analysis.calculate_shift_share(df_pop, df_lfpr, base_year=2000)` and the `shift_share` block exist. **Defect:** `_between_group_effect()` uses average population *levels* instead of average *rates*, producing values in the thousands of pp (e.g. −2,983 pp for 2026). The youth term also reuses `rate_prime`, and the prime term double-counts prime-total plus prime men/women.
+- `labor_viz.HeroFigure` renders Panel C for the decomposition; the panel should not be cited until the math is fixed.
+- **Data rule to keep:** population shares $w_{i,t} = \text{Pop}_i / \text{Pop}_{\text{total}}$ are computed on annual resampled means before matrix operations.
+
+## BLS Weekly-Hours Status (Known Defect)
+
+The catalog labels `LNS12032194` / `LNS12032195` as average weekly hours, but they
+are **Employment Level — Part-Time for Economic Reasons** series (thousands of
+persons). The committed JSON cache spans only 1955-05..1957-12 because the BLS
+API reduced the requested range to its 10-year limit. The `weekly_hours_*`
+columns, the "Average Weekly Hours Worked" report section, and the related stats
+are invalid until the IDs are replaced and the cache is regenerated.
 
 ## Data notes
 
-- Monthly series run 1948-01 through 2026-09. **October 2025 is missing from
-  every CPS series** (no field work during the 2025 shutdown). Gaps stay NaN
-  and are annotated on the chart — never interpolate them away.
+- The core monthly CPS series run 1948-01 through 2026-09; the assembled
+  `monthly` frame starts 1947-01 because `CPIAUCSL` predates it. **October 2025
+  is missing from every CPS series** (no field work during the 2025 shutdown).
+  Gaps stay NaN and are annotated on the chart — never interpolate them away.
 - Gender earnings are quarterly (1979-01..2026-04) and cover full-time wage
   and salary workers only.
 - Participation rates are seasonally adjusted; population levels (LNU...)
@@ -107,18 +119,22 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 | D10 | _counts_stats, _consistency_checks | Empty → IndexError/NaN | **FIXED**: EmptySeriesError + NaN guard |
 | D11 | analysis.main vs labor_viz.main | Inconsistent CLI failure UX | **FIXED**: both SystemExit(1) |
 | D12 | labor_viz.build_animated | GIF fallbacks unexercised | **FIXED**: monkeypatched tests |
+| D14 | analysis._regime_section | Prose hard-wired to the 2000-2019 label | **PINNED** (test 1082) |
+| D15 | analysis._covid_window | No-drop case must treat the trough as recovery | **PINNED** (test 253) |
 | F1 | series.sid() | Ambiguous total/earnings_nominal | **PINNED** (no callers) |
 | F2 | labor_data._frame | pd.concat default-sort deprecation | **FIXED**: explicit sort=True |
 
 ### Remaining Known Issues (Tracked)
 
-- **Suite:** all collected tests pass; coverage is at the 99% target now that
-  `fred_data.py` covers both FRED and BLS ingestion. The remaining gap is
+- **Suite:** 274 collected, 274 passed; coverage is 99%. The remaining gap is
   limited to CLI `__main__` guard bodies, whose `main()` functions are already
   tested directly.
-- The former CLI `xfail` markers are gone: their doubles now accept the
-  `bls_api_key` argument, and `labor_viz.build` is patched after the pipeline
-  doubles are installed.
+- **BLS weekly-hours defect:** the two IDs are mislabeled part-time employment
+  series; the cache spans only 32 observations and must be regenerated after the
+  IDs are corrected. See [docs/data.md](docs/data.md#bls-series-known-defect).
+- **Shift-share defect:** the between-group term uses population levels instead
+  of rates and yields non-physical values. See
+  [docs/methodology.md](docs/methodology.md#shift-share-decomposition-calculate_shift_share).
 
 ## Documentation
 

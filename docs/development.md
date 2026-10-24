@@ -28,7 +28,7 @@ with `pixi add <package>` so the lock stays authoritative.
 
 | Command | Purpose |
 |---|---|
-| `pixi run fetch` | Download all 30 FRED series into `data/raw/`. |
+| `pixi run fetch` | Download all 30 FRED + 2 BLS series into `data/raw/`. |
 | `pixi run analyze` | Recompute stats → `output/findings.md`, `output/summary.json`. |
 | `pixi run viz` | Rebuild all three visuals. |
 | `pixi run style` | `ruff format` then `ruff check --fix` — **run before committing**. |
@@ -55,13 +55,14 @@ pixi run pytest -m integration -q          # only the real-data integration test
 
 | Path | What lives there |
 |---|---|
-| `series.py` | The FRED catalog and `PALETTE` (no I/O). |
+| `series.py` | The FRED/BLS catalog and `PALETTE` (no I/O). |
+| `data_common.py` | Shared cache-staleness and date helpers (no I/O). |
 | `fred_data.py` | FRED + BLS HTTP client and cache; `FetchError`. |
 | `labor_data.py` | Frame assembly and derived columns. |
 | `analysis.py` | `compute_stats()` + report renderer + CLI. |
 | `labor_viz.py` | Chart builders + CLI. |
 | `tests/` | pytest suite and shared fixtures (`conftest.py`). |
-| `data/raw/` | Committed FRED CSVs (the cached inputs). |
+| `data/raw/` | Committed FRED CSVs and BLS JSON (the cached inputs). |
 | `output/` | Committed generated deliverables. |
 | `docs/` | This documentation. |
 
@@ -114,9 +115,14 @@ Coverage (99%) is a byproduct indicator, not a target.
 |---|---|
 | `tests/conftest.py` | Fixtures, the offline synthetic dataset, cache isolation, network guard. |
 | `tests/test_series.py` | Catalog integrity and the `sid()` ambiguity. |
+| `tests/test_data_common_math.py` | Date parsing, month ordinals, cache-staleness boundaries. |
 | `tests/test_fred_data.py` | CSV parsing strictness, the cache state machine. |
+| `tests/test_fred_data_bls_contracts.py` | BLS JSON contracts, API-key forwarding, HTTP failures. |
+| `tests/test_fred_data_gaps.py` | Parser gaps and malformed-payload failure modes. |
 | `tests/test_labor_data.py` | Frame joins, derived math, zero-denominator guards, coverage. |
 | `tests/test_analysis.py` | Every statistics helper, exact values, `EmptySeriesError`. |
+| `tests/test_analysis_guards.py` | Degenerate-input guards and renderer tripwires. |
+| `tests/test_shift_share_contracts.py` | Exact shift-share decomposition values and boundary cases. |
 | `tests/test_labor_viz.py` | Styling helpers, `HeroFigure`, reveal math, all three builders. |
 | `tests/test_cli.py` | CLI flag matrix, clean exits, JSON-validity tripwires, integration. |
 
@@ -156,19 +162,14 @@ published rates, letting the consistency checks be pinned to `0.0`.
 
 ### Current suite status
 
-`pixi run test` → **202 collected: 196 passed, 2 xfailed, 4 xpassed.**
-`pixi run test-cov` → **99%** (8 uncovered lines, all error/exception paths).
+`pixi run test` → **274 collected: 274 passed.**
+`pixi run test-cov` → **99%** (the only uncovered lines are the `__main__`
+guard bodies in `analysis.py` and `labor_viz.py`, whose `main()` functions are
+tested directly).
 
-Two categories of `xfail` need attention:
-
-- **4 xpassed (stale markers).** These tests target defects that are now fixed
-  (D5, D11, and `allow_nan=False`), so they pass. Convert them to ordinary tests
-  and remove the `xfail` marks. Until then, treat an xpass as a signal that a
-  marker is out of date.
-- **2 genuine xfails.** CLI unit tests whose monkeypatching of
-  `analysis.build` / `labor_viz.build` proved unreliable. The integration tests
-  cover the real behavior. Treat these as known, tracked exceptions — not free
-  passes.
+The former `xfail` markers are gone. The doubles now accept the `bls_api_key`
+argument, and `labor_viz.build` is patched after the pipeline doubles are
+installed.
 
 ## Defect register
 
@@ -189,6 +190,8 @@ A running register of confirmed defects and their disposition lives in
 | D10 | `_counts_stats`, `_consistency_checks` — empty → `IndexError`/`NaN` | **FIXED** (`EmptySeriesError` + guard) |
 | D11 | `analysis.main` vs `labor_viz.main` — inconsistent CLI failure | **FIXED** (both `SystemExit(1)`) |
 | D12 | `labor_viz.build_animated` — GIF fallbacks unexercised | **FIXED** (monkeypatched tests) |
+| D14 | `analysis._regime_section` — prose hard-wired to the `2000-2019` label | **PINNED** (test 1082) |
+| D15 | `analysis._covid_window` — no-drop case must treat the trough as recovery | **PINNED** (test 253) |
 | F1 | `series.sid()` — ambiguous `("total", "earnings_nominal")` | **PINNED** (no callers) |
 | F2 | `labor_data._frame` — `pd.concat` default-sort deprecation | **FIXED** (explicit `sort=True`) |
 
@@ -200,7 +203,8 @@ the behavior is intentional and a test documents it.
 ### Add a new FRED series
 
 1. Append a `SeriesSpec(sid, label, short, track, sex, units, seasonal)` to
-   `SERIES` in `series.py`. Keep `sid` unique.
+   `FRED_SERIES` (or a `BlsSeriesSpec` to `BLS_SERIES`) in `series.py`. Keep
+   `sid` unique.
 2. If it should appear in a frame, add it to the matching mapping in
    `labor_data.py` (`MONTHLY_COLUMNS`, `QUARTERLY_COLUMNS`, or `HOURLY_COLUMNS`).
    Column names must be unique within a mapping.

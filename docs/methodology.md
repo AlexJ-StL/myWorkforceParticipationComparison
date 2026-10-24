@@ -157,7 +157,7 @@ result shape.
 ## Counts and composition (`_counts_stats`)
 
 Levels (`labor_force_total`, `labor_force_men`, `labor_force_women`,
-`employment_total`, `population_16plus`):
+`employment_total`, `population_16plus` — mapped from `population_total`):
 
 | Field | Definition |
 |---|---|
@@ -188,13 +188,59 @@ Cross-checks that independent published series agree with derived arithmetic:
 > **seasonally adjusted** while the gender population levels (`LNU…`) are
 > **not**; and published rates carry BLS rounding.
 
+## Weekly hours (`_weekly_hours_stats`)
+
+Descriptive endpoints for `weekly_hours_men`, `weekly_hours_women`, and
+`weekly_hours_total`, plus the men/women hours ratio:
+
+| Field | Definition |
+|---|---|
+| `first` / `latest` (+ dates) | Endpoint values. |
+| `change` | `latest − first`. |
+| `change_pct` | `(latest / first − 1) × 100`. |
+| `ratios.hours_ratio_men_women` | The men/women ratio with `first`, `latest`, `change`, and `slope_pp_per_year`. |
+
+> **Known defect.** The two BLS IDs behind these columns are *not* weekly-hours
+> series; they are part-time-for-economic-reasons employment levels. The block
+> is invalid until the IDs are replaced. See
+> [data.md](data.md#bls-series-known-defect).
+
+## Shift-share decomposition (`calculate_shift_share`)
+
+An **experimental** annual decomposition of LFPR change into behavioral
+(within-group) and demographic-aging (between-group) components, using
+`base_year=2000`. Population shares are $w_{i,t} = \text{Pop}_{i,t} /
+\text{Pop}_{\text{total},t}$, computed on annual resampled means. For each year
+`t`:
+
+$$
+\text{within}_t = \sum_i \frac{w_{i,t} + w_{i,\text{base}}}{2}\,(r_{i,t} - r_{i,\text{base}})
+$$
+
+$$
+\text{between}_t = \sum_i \frac{r_{i,t} + r_{i,\text{base}}}{2}\,(w_{i,t} - w_{i,\text{base}})
+$$
+
+The returned frame also carries `lfpr_change_total`, `pop_share_*`, the age-group
+rates, and `cumulative_*` fields.
+
+Groups: `youth` (16–24), `prime` (25–54, split into men and women), `older` (55+).
+
+> **Known defect.** The shipped `_between_group_effect()` uses average population
+> **levels** instead of average **rates** in the between term. Because population
+> is in thousands, the result is non-physical (e.g. −2,983 pp for 2026). In
+> addition, `rate_prime_men` / `rate_prime_women` are 16+ proxies rather than
+> true prime-age rates, and the youth term reuses `rate_prime` because no youth
+> LFPR series is cataloged. Treat the entire `shift_share` block as experimental
+> and **not publishable** until those issues are corrected.
+
 ## Coverage (`_coverage_summary`)
 
 Aggregates the per-series coverage report into:
 
 | Field | Definition |
 |---|---|
-| `series_count` | Number of raw series (25). |
+| `series_count` | Number of raw series (32: 30 FRED + 2 BLS). |
 | `monthly_span` | `YYYY-MM..YYYY-MM` of the assembled monthly frame. |
 | `earnings_span` | Span of the quarterly earnings frame. |
 | `missing_periods` | Sorted, de-duplicated union of all per-series missing months. |
@@ -215,6 +261,10 @@ Aggregates the per-series coverage report into:
   shift slightly between vintages.
 - The 1948–2000 and 2000–2026 eras differ in trend, but regime splits are
   chosen for interpretability, not by a formal changepoint test.
+- The BLS "weekly hours" block is currently mislabeled and invalid (see
+  [data.md](data.md#bls-series-known-defect)).
+- The shift-share decomposition is experimental and currently produces
+  non-physical between-group values; do not cite it.
 
 See [data.md](data.md) for the underlying columns and
 [outputs.md](outputs.md) for where each statistic appears.

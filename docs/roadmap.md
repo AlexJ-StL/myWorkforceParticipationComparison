@@ -102,6 +102,8 @@ underreporting.
 | Uncertainty intervals | 💭 | Standard errors on slopes and correlations. |
 | Unemployment / EPOP panels | 💭 | The catalog already has the data; only the charts are missing. |
 | Population controls by gender over time | 💭 | The `LNU…` NSA population series could support cohort analysis. |
+| Shift-share decomposition | ⚠️ | Implemented (`calculate_shift_share`, Panel C, `summary.shift_share`) but the between-group term is non-physical; not publishable. See [methodology.md](methodology.md#shift-share-decomposition-calculate_shift_share). |
+| BLS weekly hours | ⚠️ | Implemented but the catalog IDs are mislabeled part-time employment levels; the cache is invalid. See [data.md](data.md#bls-series-known-defect). |
 
 ## Engineering enhancements
 

@@ -11,6 +11,11 @@ produced by `pixi run analyze`; the visuals by `pixi run viz`.
 | `output/twitter_hero.mp4` (or `.gif`) | `labor_viz.build_animated()` | yes |
 | `output/twitter_interactive.html` | `labor_viz.build_interactive()` | no (generated on demand) |
 
+> **Stale artifacts:** the committed `findings.md` and `summary.json` still
+> report 25 series and omit `weekly_hours` / `shift_share`. They predate the
+> 32-series expansion and should be regenerated only after the BLS mislabeling
+> and shift-share arithmetic defects are fixed.
+
 ## CLI reference
 
 ### `analysis.py` (`pixi run analyze`)
@@ -46,13 +51,15 @@ order:
 
 | Section | Content |
 |---|---|
-| Title + provenance | Generation timestamp (UTC), series count, monthly/earnings spans, and the October 2025 gap note. |
+| Title + provenance | Generation timestamp (UTC), FRED/BLS series counts, monthly/earnings spans, and the October 2025 gap note. |
 | Participation levels | Table of first/peak/latest and changes for All/Men/Women plus the gender gap. |
 | Trend regimes | OLS slope (pp/yr) and R² per regime for men/women/total/gap. |
 | COVID-19 shock and recovery | Dec 2019 baseline, 2020 trough, latest, change vs. baseline, recovery. |
 | Median usual weekly earnings | Real and nominal endpoints by gender, plus the W/M ratio and the alignment correlation. |
+| Average weekly hours | Men/women/total endpoints, change, change %, and the M/W hours ratio. **Known defect:** the BLS IDs are mislabeled; the section is invalid. |
 | Counts and composition | Labor force/employment levels with growth multiples and women's share. |
 | Internal consistency checks | Additivity and implied-vs-published rate differences. |
+| Shift-share | Annual behavioral (within) vs. demographic-aging (between) decomposition from a 2000 base. **Experimental:** the between term is currently non-physical (see [methodology.md](methodology.md#shift-share-decomposition-calculate_shift_share)). |
 | Caveats | The standard interpretation warnings (see [methodology.md](methodology.md#caveats-kept-verbatim-in-the-report)). |
 
 The report is a rendering of `stats` — changing a statistic changes both the
@@ -78,7 +85,18 @@ Strict JSON (`json.dumps(..., allow_nan=False)`), so any non-finite value is a
     "ratios": { "nominal": <ratio>, "real": <ratio> },
     "participation_alignment": <alignment>
   },
+  "weekly_hours": {
+    "series": { "men": <hoursSeries>, "women": <hoursSeries>, "total": <hoursSeries> },
+    "ratios": { "hours_ratio_men_women": <hoursRatio> }
+  },
   "counts": { "levels": { ... }, "shares": { "women_lf_share": <share>, "emp_pop_ratio_total": <share> } },
+  "shift_share": {
+    "year": number,
+    "within_group_effect": number,
+    "between_group_effect": number,
+    "cumulative_within_group": number,
+    "cumulative_between_group": number
+  },
   "checks": {
     "labor_force_additivity": <additivity>,
     "implied_vs_published_total": <impliedCheck>,
@@ -102,8 +120,12 @@ Field shapes:
 | `<share>` | `first`, `first_date`, `latest`, `latest_date`, `change_pp` |
 | `<additivity>` | `max_abs_diff_thousands`, `mean_abs_diff_thousands` |
 | `<impliedCheck>` | `mean_abs_diff_pp`, `max_abs_diff_pp` |
+| `<hoursSeries>` | `first`, `first_date`, `latest`, `latest_date`, `change`, `change_pct` |
+| `<hoursRatio>` | `first`, `first_date`, `latest`, `latest_date`, `change`, `slope_pp_per_year` |
 
-Example (trimmed) from the committed output:
+Example (trimmed; shape only — the committed `output/summary.json` currently
+predates the 32-series expansion and does not yet contain `weekly_hours` or
+`shift_share`, both of which are blocked by the defects noted above):
 
 ```json
 {
@@ -114,7 +136,7 @@ Example (trimmed) from the committed output:
              "change_since_first": -19.5, "change_since_peak": -20.2 }
   },
   "gap": { "first": 54.7, "latest": 10.5, "shrink_pp": 44.2 },
-  "coverage": { "series_count": 25, "monthly_span": "1947-01..2026-09",
+  "coverage": { "series_count": 32, "monthly_span": "1947-01..2026-09",
                 "earnings_span": "1979-01..2026-04", "missing_periods": ["2025-10"] }
 }
 ```
@@ -153,6 +175,11 @@ underlying story.
 - **Panel B — earnings:** men and women real weekly earnings on the left axis ($)
   and the women-to-men ratio on a secondary right axis (%); in-plot change
   annotations and end labels.
+- **Panel C — shift-share:** two bars comparing the within-group (behavioral)
+  and between-group (demographic-aging) components from the 2000 base, with
+  values in pp. **Known defect:** the between term is currently non-physical;
+  the panel is present but not publishable (see
+  [methodology.md](methodology.md#shift-share-decomposition-calculate_shift_share)).
 - **End labels:** latest values in the right-hand gutter for every series.
 - **Footer:** units/definitions and the "descriptive analysis, not causal
   estimates" disclaimer.
@@ -163,9 +190,9 @@ underlying story.
   2600.
 - **Mechanic:** `FuncAnimation` calls `HeroFigure.reveal(t)` for `t` in [0, 1].
   Panel A reveals across 1948–2026; Panel B appears once the global timeline
-  fraction reaches where 1979 falls within Panel A's span. Milestone annotations
-  appear when the reveal passes their date; end-label alpha ramps in over the
-  final ~12%.
+  fraction reaches where 1979 falls within Panel A's span; Panel C is revealed
+  after Panel B. Milestone annotations appear when the reveal passes their date;
+  end-label alpha ramps in over the final ~12%.
 - **Fallback:** if `FFMpegWriter` is unavailable **or** saving raises `OSError`,
   the animation is written as `twitter_hero.gif` via `PillowWriter` and a
   warning is printed. The GIF path is the guaranteed output on hosts without
