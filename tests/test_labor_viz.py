@@ -8,6 +8,7 @@ import pytest
 from matplotlib import pyplot as plt
 from matplotlib.animation import FFMpegWriter, FuncAnimation
 from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle
 
 import labor_viz
 from labor_viz import (
@@ -303,3 +304,79 @@ def matplotlib_color(hex_color: str):
     from matplotlib.colors import to_rgba
 
     return to_rgba(hex_color)
+
+
+# ---------------------------------------------------------------------------
+# panel C edge cases
+# ---------------------------------------------------------------------------
+
+
+def _with_shift_share(stats: dict, *, within: float, between: float) -> dict:
+    """Copy ``stats`` with a hand-set shift-share decomposition block."""
+    clone = {**stats, "shift_share": {**stats.get("shift_share", {})}}
+    clone["shift_share"]["within_group_effect"] = within
+    clone["shift_share"]["between_group_effect"] = between
+    return clone
+
+
+def _panel_c_bar_geometry(synthetic_data, stats):
+    """Build a HeroFigure and return the two stacked-bar heights and the
+    between-bar center on the x axis."""
+    figure = HeroFigure(synthetic_data, stats)
+    try:
+        ax = figure._panel_c.ax
+        assert len(ax.patches) == 2, "panel C should hold exactly the two bars"
+        within_bar, between_bar = ax.patches
+        assert isinstance(within_bar, Rectangle)
+        assert isinstance(between_bar, Rectangle)
+        return (
+            within_bar.get_height(),
+            between_bar.get_height(),
+            between_bar.get_x() + between_bar.get_width() / 2,
+        )
+    finally:
+        plt.close(figure.fig)
+
+
+def test_panel_c_zero_total_falls_back_to_even_split(synthetic_data, synthetic_stats):
+    """Pin (behavior): a zero shift-share total must split the bar 50/50
+    instead of raising ZeroDivisionError."""
+    stats = _with_shift_share(synthetic_stats, within=0.0, between=0.0)
+    within_height, between_height, between_center = _panel_c_bar_geometry(
+        synthetic_data, stats
+    )
+    assert within_height == 50.0
+    assert between_height == 50.0
+    # 50% split: the between bar is offset left by 50/200 = 0.25 from x=0.5.
+    assert between_center == pytest.approx(0.25)
+
+
+def test_panel_c_cancelling_components_also_fall_back_to_even_split(
+    synthetic_data, synthetic_stats
+):
+    """The guard keys on abs(within + between), so +3 and -3 also hit it."""
+    stats = _with_shift_share(synthetic_stats, within=3.0, between=-3.0)
+    within_height, between_height, _ = _panel_c_bar_geometry(synthetic_data, stats)
+    assert within_height == 50.0
+    assert between_height == 50.0
+
+
+def test_panel_c_nonzero_total_uses_component_proportions(synthetic_data, synthetic_stats):
+    """Control: 3:1 components must stack 75/25, not the 50/50 fallback."""
+    stats = _with_shift_share(synthetic_stats, within=3.0, between=1.0)
+    within_height, between_height, _ = _panel_c_bar_geometry(synthetic_data, stats)
+    assert within_height == 75.0
+    assert between_height == 25.0
+
+
+def test_reveal_hides_panel_c_until_its_start_fraction(hero):
+    """Pin (behavior): panel C stays hidden until the reveal passes its start."""
+    panel_a = hero._panel_a
+    hero._panel_c.start = panel_a.start + 0.9 * (panel_a.end - panel_a.start)
+    hero._panel_c.end = panel_a.end
+
+    hero.reveal(0.9 - 0.001)
+    assert hero._panel_c.ax.get_visible() is False
+
+    hero.reveal(0.9 + 0.001)
+    assert hero._panel_c.ax.get_visible() is True

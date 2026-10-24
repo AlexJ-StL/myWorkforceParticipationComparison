@@ -112,8 +112,7 @@ generate it locally. See
 ```
 .
 ├── series.py          # FRED catalog: series IDs, labels, units, PALETTE
-├── fred_data.py       # FRED CSV client + local cache; FredFetchError
-├── bls_data.py        # BLS API v2 client + local cache; BlsFetchError
+├── fred_data.py       # FRED CSV + BLS API v2 client + local cache; FetchError
 ├── labor_data.py      # Assembles monthly / quarterly / hourly frames + coverage
 ├── analysis.py        # compute_stats() + findings renderer + CLI
 ├── labor_viz.py       # Static PNG, animated MP4/GIF, interactive HTML + CLI
@@ -134,7 +133,7 @@ A full breakdown lives in [docs/architecture.md](docs/architecture.md).
 
 - **Primary source:** BLS/CPS and BLS/CES series retrieved from FRED. The complete
   catalog (32 series: 30 FRED + 2 BLS) is documented in [docs/data.md](docs/data.md).
-- **Secondary source:** BLS weekly hours series (men and women) retrieved directly from the BLS Public Data API.
+- **Secondary source:** BLS weekly hours series (men and women) retrieved directly from the BLS Public Data API by `fred_data.fetch_bls_series()`.
   The catalog (2 series) is documented in [docs/data.md#bls-weekly-hours-optional](docs/data.md#bls-weekly-hours-optional).
   To use these series, set the `BLS_API_KEY` environment variable (optional; unauthenticated requests are rate-limited).
 - **October 2025 is missing from the CPS series (and the CPI)** — no field work

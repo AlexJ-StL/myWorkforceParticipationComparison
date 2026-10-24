@@ -22,7 +22,7 @@ Start with the root [README.md](../README.md) for the quick start.
 
 - **Audience:** analysts and developers who will run, extend, or audit the
   analysis.
-- **Scope:** the six Python modules (`series.py`, `fred_data.py`, `bls_data.py`,
+- **Scope:** the six Python modules (`series.py`, `fred_data.py`, `data_common.py`,
   `labor_data.py`, `analysis.py`, `labor_viz.py`), the test suite, the cached
   raw data, and the generated outputs.
 - **Non-goals:** this documentation does not restate the findings themselves.

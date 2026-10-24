@@ -56,8 +56,7 @@ pixi run pytest -m integration -q          # only the real-data integration test
 | Path | What lives there |
 |---|---|
 | `series.py` | The FRED catalog and `PALETTE` (no I/O). |
-| `fred_data.py` | HTTP client + cache; `FredFetchError`. |
-| `bls_data.py` | BLS weekly-hours client and JSON cache; `BlsFetchError`. |
+| `fred_data.py` | FRED + BLS HTTP client and cache; `FetchError`. |
 | `labor_data.py` | Frame assembly and derived columns. |
 | `analysis.py` | `compute_stats()` + report renderer + CLI. |
 | `labor_viz.py` | Chart builders + CLI. |
@@ -80,7 +79,7 @@ pixi run pytest -m integration -q          # only the real-data integration test
   `frame[name]` to satisfy the pandas type stubs. Use `analysis._index()` for a
   typed `DatetimeIndex`.
 - **Exceptions:** raise explicit, purpose-built exceptions:
-  - `fred_data.FredFetchError` for fetch/parse failures (carries `series_id`,
+  - `fred_data.FetchError` for fetch/parse failures (carries `series_id`,
     `reason`).
   - `analysis.EmptySeriesError` for degenerate statistics input.
   - Do **not** catch bare `Exception`, and do not wrap unrelated errors.
@@ -247,7 +246,7 @@ in `labor_viz._style_axes`. The hero layout is `HeroFigure`. The static PNG is
 | Symptom | Likely cause / fix |
 |---|---|
 | `pixi: command not found` | Install pixi; the project has no non-pixi fallback. |
-| `FredFetchError: Failed to fetch … HTTP …` | FRED unreachable or rate-limited. Retry later; the cache is fine. |
+| `FetchError: Failed to fetch … HTTP …` | FRED unreachable or rate-limited. Retry later; the cache is fine. |
 | `Execution Error: …` on `analyze`/`viz` | A fetch failure; run `pixi run fetch` while online, or check the SID. |
 | Animation wrote a `.gif` instead of `.mp4` | ffmpeg unavailable or failed; the GIF fallback is expected. |
 | `EmptySeriesError` | A statistics helper received an all-NaN/empty series — inspect the cache for that column. |

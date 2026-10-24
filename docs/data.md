@@ -15,10 +15,9 @@ https://fred.stlouisfed.org/graph/fredgraph.csv?id=<SID>
 ```
 
 **BLS Weekly Hours (optional)** — Two series on average weekly hours worked in non‑agricultural industries are also available directly from the BLS Public Data API v2.
-The catalog is declared in [bls_data.py](../bls_data.py). To use these series, set the `BLS_API_KEY` environment variable to your BLS API key (optional; unauthenticated requests are rate‑limited).
+The catalog is declared in [`series.py`](../series.py) and fetched by [`fred_data.py`](../fred_data.py). To use these series, set the `BLS_API_KEY` environment variable to your BLS API key (optional; unauthenticated requests are rate‑limited).
 
-The catalog is declared in [`series.py`](../series.py). Each entry is a
-`SeriesSpec(sid, label, short, track, sex, units, seasonal)`.
+Each catalog entry is a `SeriesSpec(sid, label, short, track, sex, units, seasonal)`.
 
 ## Frequencies and frames
 
@@ -35,7 +34,7 @@ introduce leading `NaN`s (for example `ahe_nominal` begins 2006‑03).
 
 ## Series catalog
 
-All 32 series (30 FRED + 2 BLS) in `series.py` and `bls_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
+All 32 series (30 FRED + 2 BLS) in `series.py`; BLS series are fetched by `fred_data.py`. "SA"/"NSA" = seasonally adjusted / not adjusted.
 
 | SID | Origin | Label | Units | Freq | Seas. | Track | Sex |
 | --- | --- | --- | --- | --- | --- | --- | --- |

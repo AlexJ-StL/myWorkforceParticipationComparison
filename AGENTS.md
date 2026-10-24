@@ -38,8 +38,7 @@ re-download from FRED: pixi run analyze --refresh.
 | File | Role |
 | --- | --- |
 | series.py | FRED series catalog: IDs, labels, units, colors (PALETTE) |
-| fred_data.py | FRED CSV client with a local cache; defines FredFetchError |
-| bls_data.py | BLS weekly-hours client; optional API key; JSON cache in data/raw/ |
+| fred_data.py | FRED CSV + BLS API v2 client with a local cache; defines FetchError |
 | labor_data.py | Assembles monthly / quarterly / hourly frames + coverage |
 | analysis.py | compute_stats() (every headline number) + findings renderer |
 | labor_viz.py | Charts: static PNG, animated MP4 reveal, interactive HTML |
@@ -113,10 +112,10 @@ Tests that merely assert "returns a DataFrame" are rejected. Coverage % (99%) is
 
 ### Remaining Known Issues (Tracked)
 
-- **Suite:** 247 collected → **247 passed, 0 xfailed**; coverage **93%**
-  (69 uncovered lines) now that `bls_data.py` and `data_common.py` are included
-  in `--cov`. Those two modules (55% and 67%) account for most of the gap; the
-  rest is error/exception paths. Closing the gap is tracked separately.
+- **Suite:** all collected tests pass; coverage is at the 99% target now that
+  `fred_data.py` covers both FRED and BLS ingestion. The remaining gap is
+  limited to CLI `__main__` guard bodies, whose `main()` functions are already
+  tested directly.
 - The former CLI `xfail` markers are gone: their doubles now accept the
   `bls_api_key` argument, and `labor_viz.build` is patched after the pipeline
   doubles are installed.

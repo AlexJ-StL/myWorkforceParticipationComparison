@@ -21,7 +21,7 @@ produced by `pixi run analyze`; the visuals by `pixi run viz`.
 | `--outdir` | `./output` | Directory for `findings.md` and `summary.json`. |
 
 Writes `findings.md` and `summary.json`, prints the report and the written paths.
-On `FredFetchError` or `requests.RequestException` it exits non-zero with
+On `FetchError` or `requests.RequestException` it exits non-zero with
 `Execution Error: <message>`.
 
 ### `labor_viz.py` (`pixi run viz`)

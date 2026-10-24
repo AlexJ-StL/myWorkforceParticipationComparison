@@ -2,7 +2,7 @@
 
 These helpers are intentionally private to the package: they exist to keep
 cache-staleness and date-handling logic in one place instead of duplicating it
-across ``fred_data.py`` and ``bls_data.py``.
+within ``fred_data.py``.
 """
 
 from __future__ import annotations
