@@ -44,8 +44,11 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "POPTHM": "population_all_ages",
     "LNS12032194": "weekly_hours_men",
     "LNS12032195": "weekly_hours_women",
-    # Demographics expansion series
-    "LNS11300060": "rate_prime",
+    # Demographics expansion series. LNS11300060 (total 25-54) is mirrored by
+    # FRED; LNS11300061/62 (men/women 25-54) come from the BLS API.
+    "LNS11300060": "lfpr_prime_total",
+    "LNS11300061": "lfpr_prime_men",
+    "LNS11300062": "lfpr_prime_women",
     "LNS11324230": "rate_older",
     "LNU00000012": "population_youth",
     "LNU00000060": "population_prime",
@@ -141,9 +144,18 @@ def _add_derived_monthly(frame: pd.DataFrame) -> pd.DataFrame:
     out["emp_pop_ratio_total"] = _safe_ratio(
         out["employment_total"], out["population_total"]
     )
-    # FRED carries the prime-age participation rate only for both sexes combined.
-    # Use the 16+ gender rates (LNS11300001 / LNS11300002) as the closest
-    # available FRED proxy for the prime-age gender series.
+    # Standardized prime-age columns (lfpr_prime_total / _men / _women) arrive
+    # directly from MONTHLY_COLUMNS. Missing months -- including the October
+    # 2025 shutdown gap and any years the BLS API truncates -- remain NaN and
+    # are never interpolated.
+    #
+    # Legacy aliases retained for the shift-share decomposition, whose contract
+    # predates the sex-disaggregated prime-age series. The prime total is the
+    # published series; men/women remain 16+ proxies so existing decomposition
+    # outputs do not silently change. Only alias when the source column exists
+    # so hand-built frames in the unit tests remain valid.
+    if "lfpr_prime_total" in out.columns:
+        out["rate_prime"] = out["lfpr_prime_total"]
     out["rate_prime_men"] = out["rate_men"]
     out["rate_prime_women"] = out["rate_women"]
     out["weekly_hours_total"] = _safe_ratio(

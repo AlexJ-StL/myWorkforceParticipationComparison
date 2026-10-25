@@ -37,6 +37,17 @@ REGIMES: tuple[tuple[str, str, str], ...] = (
 
 COVID_BASELINE = "2019-12-01"
 
+# Prime-age (25-54) participation columns. The total series is mirrored by FRED;
+# the sex-disaggregated series are BLS-only. Missing months stay NaN.
+PRIME_COLUMNS: dict[str, str] = {
+    "total": "lfpr_prime_total",
+    "men": "lfpr_prime_men",
+    "women": "lfpr_prime_women",
+}
+
+# April 2000 is the baseline for the retirement-gap (demographic drag) test.
+PRIME_DRAG_BASELINE = "2000-04-01"
+
 
 class EmptySeriesError(ValueError):
     """Raised when a statistics helper receives a series with no observed values.
@@ -395,6 +406,11 @@ def compute_stats(data: WorkforceData) -> dict:
     # Add shift-share decomposition to stats
     stats["shift_share"] = _shift_share_stats(data.monthly)
 
+    # Prime-age (25-54) demographic isolation. This block is computed and
+    # returned for downstream consumers; it deliberately does not alter the
+    # findings.md renderer in this phase.
+    stats["prime_age"] = _prime_age_stats(monthly)
+
     # Add macroeconomic context metrics
     stats["macro"] = {
         "purchasing_power": _purchasing_power_stats(monthly),
@@ -555,6 +571,117 @@ def _ols(series: pd.Series) -> tuple[float, float]:
     ss_tot = float(((y - y.mean()) ** 2).sum())
     r2 = 1.0 - ss_res / ss_tot if ss_tot else float("nan")
     return float(slope), r2
+
+
+# --------------------------------------------------------------------------
+# prime-age (25-54) demographic isolation
+# --------------------------------------------------------------------------
+
+
+def _value_at_or_nan(series: pd.Series, when: str) -> float:
+    """Return the value at ``when``, or NaN when the date is absent.
+
+    Missing dates are treated as missing observations rather than a crash so
+    that the October 2025 shutdown gap and truncated BLS histories propagate
+    transparently as NaN.
+    """
+    try:
+        return _at(series, when)
+    except KeyError:
+        return float("nan")
+
+
+def _latest_common_observation(
+    aggregate: pd.Series, prime: pd.Series
+) -> tuple[float, float, str]:
+    """Latest date where both the 16+ and prime-age total rates are observed."""
+    common = pd.concat(
+        [aggregate.rename("aggregate"), prime.rename("prime")], axis=1
+    ).dropna()
+    if common.empty:
+        raise EmptySeriesError("no common observations for demographic drag")
+    latest = common.iloc[-1]
+    return float(latest["aggregate"]), float(latest["prime"]), _ym(common.index[-1])
+
+
+def _prime_age_levels(monthly: pd.DataFrame) -> dict:
+    """First, peak, and latest levels for prime-age total, men, and women."""
+    levels: dict = {}
+    for name, column in PRIME_COLUMNS.items():
+        summary = _series_summary(col(monthly, column))
+        levels[name] = {
+            "first": summary["first"],
+            "first_date": summary["first_date"],
+            "peak": summary["peak"],
+            "peak_date": summary["peak_date"],
+            "latest": summary["latest"],
+            "latest_date": summary["latest_date"],
+            "change_since_first": summary["change_since_first"],
+            "change_since_peak": summary["change_since_peak"],
+            "observations": int(col(monthly, column).notna().sum()),
+        }
+    return levels
+
+
+def _prime_age_regimes(monthly: pd.DataFrame) -> dict:
+    """OLS slope (pp/year) and R-squared for prime-age men and women by regime."""
+    regimes: dict = {}
+    for label, start, end in REGIMES:
+        window = monthly.loc[start:end]
+        regimes[label] = {}
+        for name in ("men", "women"):
+            series = col(window, PRIME_COLUMNS[name])
+            slope, r2 = _ols(series)
+            regimes[label][name] = {
+                "slope_pp_per_year": slope,
+                "r2": r2,
+                "observations": int(series.notna().sum()),
+            }
+    return regimes
+
+
+def _prime_age_drag(monthly: pd.DataFrame) -> dict:
+    """Retirement-gap decomposition: 16+ decline vs prime-age total decline.
+
+    The "drag" is the number of percentage points by which the aggregate 16+
+    participation rate fell more than the prime-age total rate between April
+    2000 and the latest month observed in both series. A positive value means
+    the aggregate decline exceeded the prime-age decline.
+    """
+    aggregate = col(monthly, "rate_total")
+    prime = col(monthly, PRIME_COLUMNS["total"])
+    aggregate_start = _value_at_or_nan(aggregate, PRIME_DRAG_BASELINE)
+    prime_start = _value_at_or_nan(prime, PRIME_DRAG_BASELINE)
+    aggregate_latest, prime_latest, latest_date = _latest_common_observation(
+        aggregate, prime
+    )
+    aggregate_decline = aggregate_start - aggregate_latest
+    prime_decline = prime_start - prime_latest
+    return {
+        "baseline_date": "2000-04",
+        "latest_date": latest_date,
+        "aggregate_start": aggregate_start,
+        "prime_start": prime_start,
+        "aggregate_latest": aggregate_latest,
+        "prime_latest": prime_latest,
+        "aggregate_change_pp": aggregate_latest - aggregate_start,
+        "prime_change_pp": prime_latest - prime_start,
+        "aggregate_decline_pp": aggregate_decline,
+        "prime_decline_pp": prime_decline,
+        "demographic_drag_pp": aggregate_decline - prime_decline,
+    }
+
+
+def _prime_age_stats(monthly: pd.DataFrame) -> dict:
+    """Prime-age (25-54) levels, regime trends, and demographic drag."""
+    missing = [column for column in PRIME_COLUMNS.values() if column not in monthly]
+    if missing:
+        return {"status": "unavailable", "missing_columns": missing}
+    return {
+        "levels": _prime_age_levels(monthly),
+        "regimes": _prime_age_regimes(monthly),
+        "demographic_drag": _prime_age_drag(monthly),
+    }
 
 
 def _corr(a: pd.Series, b: pd.Series) -> float:

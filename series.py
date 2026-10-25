@@ -304,6 +304,23 @@ BLS_SERIES: tuple[BlsSeriesSpec, ...] = (
         "Women weekly hours",
         "hours_per_week",
     ),
+    # Prime-age (25-54) labor force participation by sex. FRED mirrors only the
+    # total series (LNS11300060); the sex-disaggregated series are published by
+    # BLS and must be fetched through the BLS API. The BLS API caps each request
+    # at 20 years with a registration key (10 without), so early years may be
+    # absent from the cache; those months remain NaN rather than being imputed.
+    BlsSeriesSpec(
+        "LNS11300061",
+        "Labor Force Participation Rate - 25-54 Yrs., Men (Seas)",
+        "Prime 25-54 Men",
+        "percent",
+    ),
+    BlsSeriesSpec(
+        "LNS11300062",
+        "Labor Force Participation Rate - 25-54 Yrs., Women (Seas)",
+        "Prime 25-54 Women",
+        "percent",
+    ),
 )
 
 

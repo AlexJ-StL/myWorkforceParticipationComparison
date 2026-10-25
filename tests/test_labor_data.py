@@ -31,6 +31,7 @@ MONTHLY_DERIVED = {
     "emp_pop_ratio_total",
     "weekly_hours_total",
     "weekly_hours_ratio_w_m",
+    "rate_prime",
     "rate_prime_men",
     "rate_prime_women",
     "purchasing_power_index",
@@ -437,6 +438,46 @@ def test_assemble_preserves_october_2025_gap_in_derived_columns(synthetic_data):
     assert pd.isna(gap_row["purchasing_power_index"])
     assert pd.isna(gap_row["private_per_capita"])
     assert np.isfinite(gap_row["govt_share_pct"])
+
+
+def test_assemble_preserves_october_2025_gap_in_prime_age_columns(synthetic_data):
+    """The no-interpolation invariant applies to the new BLS prime-age columns."""
+    gap_row = synthetic_data.monthly.loc["2025-10-01"]
+    for column in ("lfpr_prime_total", "lfpr_prime_men", "lfpr_prime_women"):
+        assert pd.isna(gap_row[column])
+    # Aliases follow their sources: rate_prime mirrors lfpr_prime_total,
+    # while rate_prime_men/women remain the 16+ proxies by contract.
+    assert pd.isna(gap_row["rate_prime"])
+    assert pd.isna(gap_row["rate_prime_men"])
+    assert pd.isna(gap_row["rate_prime_women"])
+
+
+def test_assemble_rate_prime_aliases_prime_total_exactly(synthetic_data):
+    """rate_prime must be an exact alias of lfpr_prime_total when present."""
+    monthly = synthetic_data.monthly
+    pd.testing.assert_series_equal(
+        monthly["rate_prime"], monthly["lfpr_prime_total"], check_names=False
+    )
+
+
+def test_assemble_rate_prime_sex_aliases_remain_16plus_proxies(synthetic_data):
+    """Legacy contract: rate_prime_men/women mirror 16+ rates, not BLS splits."""
+    monthly = synthetic_data.monthly
+    pd.testing.assert_series_equal(
+        monthly["rate_prime_men"], monthly["rate_men"], check_names=False
+    )
+    pd.testing.assert_series_equal(
+        monthly["rate_prime_women"], monthly["rate_women"], check_names=False
+    )
+
+
+def test_derived_monthly_omits_rate_prime_when_source_absent(monthly_frame):
+    """The prime-total alias only exists when lfpr_prime_total is present."""
+    out = _add_derived_monthly(monthly_frame)
+    assert "rate_prime" not in out.columns
+    # The sex aliases are unconditional 16+ proxies, so they are always added.
+    assert "rate_prime_men" in out.columns
+    assert "rate_prime_women" in out.columns
 
 
 def test_assemble_leads_with_nan_for_short_series(synthetic_data):

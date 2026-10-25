@@ -60,6 +60,8 @@ MONTHLY_GAPPED = (
     "LNS12032194",
     "LNS12032195",
     "LNS11300060",
+    "LNS11300061",
+    "LNS11300062",
     "LNS11324230",
     "LNU00000012",
     "LNU00000060",
@@ -184,6 +186,8 @@ def _build_monthly() -> dict[str, pd.Series]:
         "LNS12032194": np.linspace(40.0, 42.0, n),  # BLS men weekly hours
         "LNS12032195": np.linspace(35.0, 37.0, n),  # BLS women weekly hours
         "LNS11300060": prime_rate,
+        "LNS11300061": prime_rate_men,
+        "LNS11300062": prime_rate_women,
         "LNS11324230": older_rate,
         "LNU00000012": pop_youth,
         "LNU00000060": pop_prime,

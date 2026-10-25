@@ -659,6 +659,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "coverage",
         "weekly_hours",
         "shift_share",
+        "prime_age",
         "macro",
     }
     assert set(synthetic_stats["rates"]) == {"total", "men", "women"}
@@ -748,7 +749,7 @@ def test_compute_stats_implied_matches_published_on_synthetic_data(synthetic_sta
 
 def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
     coverage = synthetic_stats["coverage"]
-    assert coverage["series_count"] == 35  # 33 FRED + 2 BLS
+    assert coverage["series_count"] == 37  # 33 FRED + 4 BLS
     assert coverage["missing_periods"] == ["2025-10"]
     assert coverage["monthly_span"] == "1948-01..2026-09"
     assert coverage["earnings_span"] == "1979-01..2026-04"
@@ -1069,7 +1070,7 @@ def test_header_reports_generation_and_span(render_stats):
     text = analysis._header(render_stats)
     assert text.startswith("# U.S. Workforce Participation: Findings\n\n")
     assert "Generated " in text
-    assert "33 FRED series and 2 BLS series" in text
+    assert "33 FRED series and 4 BLS series" in text
     assert "1948-01..2026-09 monthly" in text
     assert "1979-01..2026-04 quarterly earnings" in text
     assert "October 2025" in text
@@ -1877,3 +1878,175 @@ def test_render_report_includes_macro_context_section(synthetic_data, synthetic_
     assert "**Private Employment per Capita:**" in report
     assert "**Public Sector Share:**" in report
     assert "**Public Debt to GDP Ratio:**" in report
+
+
+# ---------------------------------------------------------------------------
+# prime-age helpers: exact math and NaN propagation
+# ---------------------------------------------------------------------------
+
+
+def _prime_frame_flat() -> pd.DataFrame:
+    """24 monthly observations: 2000 flat at (60, 80), 2001 flat at (61, 82)."""
+    index = pd.date_range("2000-01-01", "2001-12-01", freq="MS")
+    return pd.DataFrame(
+        {
+            "rate_total": [60.0] * 12 + [61.0] * 12,
+            "lfpr_prime_total": [80.0] * 12 + [82.0] * 12,
+            "lfpr_prime_men": [90.0] * 12 + [92.0] * 12,
+            "lfpr_prime_women": [70.0] * 12 + [69.0] * 12,
+        },
+        index=index,
+    )
+
+
+def _prime_frame_2020_2021() -> pd.DataFrame:
+    """24 monthly observations covering only the 2019-2026 regime."""
+    index = pd.date_range("2020-01-01", "2021-12-01", freq="MS")
+    return pd.DataFrame(
+        {
+            "lfpr_prime_men": np.linspace(90.0, 88.0, 24),
+            "lfpr_prime_women": np.linspace(71.0, 72.0, 24),
+        },
+        index=index,
+    )
+
+
+def test_value_at_or_nan_returns_value_for_present_date():
+    series = pd.Series([1.0, 2.0], index=D2)
+    assert analysis._value_at_or_nan(series, "2020-02-01") == 2.0
+
+
+def test_value_at_or_nan_returns_nan_for_missing_date():
+    series = pd.Series([1.0, 2.0], index=D2)
+    assert np.isnan(analysis._value_at_or_nan(series, "2020-03-01"))
+
+
+def test_value_at_or_nan_returns_nan_for_nan_value():
+    series = pd.Series([1.0, np.nan], index=D2)
+    assert np.isnan(analysis._value_at_or_nan(series, "2020-02-01"))
+
+
+def test_latest_common_observation_returns_last_non_nan_pair():
+    index = pd.DatetimeIndex(["2020-01-01", "2020-02-01", "2020-03-01"])
+    aggregate = pd.Series([1.0, 2.0, np.nan], index=index)
+    prime = pd.Series([np.nan, 2.0, 3.0], index=index)
+    agg, prime_val, ym = analysis._latest_common_observation(aggregate, prime)
+    assert agg == 2.0
+    assert prime_val == 2.0
+    assert ym == "2020-02"
+
+
+def test_latest_common_observation_raises_for_no_overlap():
+    index = pd.DatetimeIndex(["2020-01-01", "2020-02-01"])
+    aggregate = pd.Series([1.0, np.nan], index=index)
+    prime = pd.Series([np.nan, 2.0], index=index)
+    with pytest.raises(EmptySeriesError):
+        analysis._latest_common_observation(aggregate, prime)
+
+
+def test_prime_age_levels_exact_values():
+    levels = analysis._prime_age_levels(_prime_frame_flat())
+    total = levels["total"]
+    assert total["first"] == 80.0
+    assert total["first_date"] == "2000-01"
+    assert total["latest"] == 82.0
+    assert total["latest_date"] == "2001-12"
+    assert total["peak"] == 82.0
+    # 82.0 first appears at 2001-01; peak_date pins first-occurrence tie-breaking.
+    assert total["peak_date"] == "2001-01"
+    assert total["change_since_first"] == 2.0
+    assert total["change_since_peak"] == 0.0
+    assert total["observations"] == 24
+
+
+def test_prime_age_levels_ignore_leading_nan():
+    frame = _prime_frame_flat()
+    frame.loc["2000-01-01", "lfpr_prime_total"] = np.nan
+    total = analysis._prime_age_levels(frame)["total"]
+    assert total["first"] == 80.0
+    assert total["first_date"] == "2000-02"
+    assert total["observations"] == 23
+
+
+def test_prime_age_levels_all_nan_raises_empty_series_error():
+    frame = _prime_frame_flat()
+    frame["lfpr_prime_total"] = np.nan
+    with pytest.raises(EmptySeriesError):
+        analysis._prime_age_levels(frame)
+
+
+def test_prime_age_regimes_exact_slopes_and_r2():
+    regimes = analysis._prime_age_regimes(_prime_frame_2020_2021())
+    # Only the 2019-2026 window has observations in this frame.
+    for label in ("1948-2000", "2000-2019"):
+        for sex in ("men", "women"):
+            assert np.isnan(regimes[label][sex]["slope_pp_per_year"])
+            assert np.isnan(regimes[label][sex]["r2"])
+            assert regimes[label][sex]["observations"] == 0
+
+    # np.linspace spans 23 month-steps, so the exact slope is delta/(23/12).
+    men_slope = -2.0 / (23 / 12)
+    women_slope = 1.0 / (23 / 12)
+    assert regimes["2019-2026"]["men"]["slope_pp_per_year"] == pytest.approx(men_slope)
+    assert regimes["2019-2026"]["men"]["r2"] == pytest.approx(1.0)
+    assert regimes["2019-2026"]["men"]["observations"] == 24
+    assert regimes["2019-2026"]["women"]["slope_pp_per_year"] == pytest.approx(
+        women_slope
+    )
+    assert regimes["2019-2026"]["women"]["r2"] == pytest.approx(1.0)
+    assert regimes["2019-2026"]["women"]["observations"] == 24
+
+
+def test_prime_age_drag_exact_math():
+    drag = analysis._prime_age_drag(_prime_frame_flat())
+    assert drag["baseline_date"] == "2000-04"
+    assert drag["latest_date"] == "2001-12"
+    assert drag["aggregate_start"] == 60.0
+    assert drag["prime_start"] == 80.0
+    assert drag["aggregate_latest"] == 61.0
+    assert drag["prime_latest"] == 82.0
+    assert drag["aggregate_change_pp"] == pytest.approx(1.0)
+    assert drag["prime_change_pp"] == pytest.approx(2.0)
+    assert drag["aggregate_decline_pp"] == pytest.approx(-1.0)
+    assert drag["prime_decline_pp"] == pytest.approx(-2.0)
+    assert drag["demographic_drag_pp"] == pytest.approx(1.0)
+
+
+def test_prime_age_drag_propagates_nan_baseline():
+    frame = _prime_frame_flat()
+    frame.loc["2000-04-01", "lfpr_prime_total"] = np.nan
+    drag = analysis._prime_age_drag(frame)
+    assert np.isnan(drag["prime_start"])
+    assert np.isnan(drag["prime_change_pp"])
+    assert np.isnan(drag["prime_decline_pp"])
+    assert np.isnan(drag["demographic_drag_pp"])
+    # The aggregate side stays fully observed.
+    assert drag["aggregate_start"] == 60.0
+    assert drag["aggregate_decline_pp"] == pytest.approx(-1.0)
+
+
+def test_prime_age_stats_reports_missing_columns():
+    frame = pd.DataFrame({"rate_total": [60.0]}, index=pd.DatetimeIndex(["2000-01-01"]))
+    result = analysis._prime_age_stats(frame)
+    assert result["status"] == "unavailable"
+    assert set(result["missing_columns"]) == set(analysis.PRIME_COLUMNS.values())
+
+
+def test_prime_age_stats_includes_every_block():
+    result = analysis._prime_age_stats(_prime_frame_flat())
+    assert set(result) == {"levels", "regimes", "demographic_drag"}
+    assert set(result["levels"]) == {"total", "men", "women"}
+    assert set(result["regimes"]) == {"1948-2000", "2000-2019", "2019-2026"}
+    assert set(result["demographic_drag"]) == {
+        "baseline_date",
+        "latest_date",
+        "aggregate_start",
+        "prime_start",
+        "aggregate_latest",
+        "prime_latest",
+        "aggregate_change_pp",
+        "prime_change_pp",
+        "aggregate_decline_pp",
+        "prime_decline_pp",
+        "demographic_drag_pp",
+    }
