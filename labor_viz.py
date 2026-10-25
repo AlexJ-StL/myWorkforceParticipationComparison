@@ -788,6 +788,201 @@ def build_static(data: WorkforceData, stats: dict, outdir: Path) -> Path:
     return path
 
 
+def build_structural_drag(data: WorkforceData, stats: dict, outdir: Path) -> Path:
+    """Render the structural drag chart as a 1600x900 PNG.
+
+    Two panels: purchasing power vs. federal debt, and private employment
+    per capita vs. civilian labor force participation. NaN gaps (including
+    the October 2025 shutdown) are preserved as line breaks, never bridged.
+    """
+    monthly = data.monthly
+    quarterly = data.quarterly
+
+    fig = plt.figure(figsize=(FIGURE_W, FIGURE_H), dpi=DPI, facecolor=PALETTE["bg"])
+
+    fig.text(
+        0.055,
+        0.972,
+        "U.S. LABOR FORCE  ·  STRUCTURAL DRAG  ·  1948–2026",
+        color=PALETTE["accent"],
+        fontsize=6.5,
+        fontweight="bold",
+        va="top",
+    )
+    fig.text(
+        0.055,
+        0.935,
+        "Structural Drag & Purchasing Power",
+        color=PALETTE["total"],
+        fontsize=19,
+        fontweight="bold",
+        va="top",
+    )
+    fig.text(
+        0.055,
+        0.868,
+        "Purchasing power vs. federal debt, and private employment engine "
+        "vs. participation",
+        color=PALETTE["muted"],
+        fontsize=7.2,
+        va="top",
+    )
+    fig.text(
+        0.945,
+        0.972,
+        "Source: BLS / FRED",
+        color=PALETTE["muted"],
+        fontsize=6.2,
+        ha="right",
+        va="top",
+    )
+    fig.text(
+        0.945,
+        0.947,
+        "Data through Sep 2026",
+        color=PALETTE["muted"],
+        fontsize=6.2,
+        ha="right",
+        va="top",
+    )
+
+    # Top panel: purchasing power index vs. federal debt as % of GDP.
+    ax_top = fig.add_axes((0.055, 0.50, 0.79, 0.31))
+    _style_axes(ax_top)
+    ppi = monthly["purchasing_power_index"].copy()
+    first_valid = ppi.dropna().iloc[0]
+    ppi = ppi / first_valid * 100.0
+    ppi_dates = mdates.date2num(monthly.index.to_numpy())
+    _glow(
+        ax_top,
+        ppi_dates,
+        ppi.to_numpy(dtype=float),
+        PALETTE["total"],
+        linewidth=1.8,
+        label="Purchasing Power Index (rebased to 100)",
+    )
+    ax_top.set_ylabel("Purchasing Power Index", color=PALETTE["total"], fontsize=7)
+    if not ppi.dropna().empty:
+        ppi_max = float(ppi.max())
+    else:
+        ppi_max = 120.0
+    ax_top.set_ylim(0, ppi_max * 1.2)
+    ax_top.set_xlim(_dnum("1947-06-01"), _dnum("2027-06-01"))
+    ax_top.xaxis.set_major_locator(mdates.YearLocator(10))
+    ax_top.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax_top.legend(
+        loc="upper left",
+        frameon=False,
+        fontsize=6,
+        labelcolor=PALETTE["muted"],
+    )
+
+    ax_top2 = ax_top.twinx()
+    ax_top2.set_facecolor("none")
+    for spine in ax_top2.spines.values():
+        spine.set_visible(False)
+    ax_top2.tick_params(colors=PALETTE["muted"], labelsize=6.2, length=0, pad=2)
+    ax_top2.yaxis.set_major_formatter(
+        mticker.FuncFormatter(lambda value, _: f"{value:.0f}%")
+    )
+    debt = quarterly["debt_to_gdp"]
+    debt_dates = mdates.date2num(quarterly.index.to_numpy())
+    _glow(
+        ax_top2,
+        debt_dates,
+        debt.to_numpy(dtype=float),
+        PALETTE["accent"],
+        linewidth=1.8,
+        linestyle="--",
+        label="Federal Debt % GDP",
+    )
+    ax_top2.set_ylabel("Federal Debt % GDP", color=PALETTE["accent"], fontsize=7)
+    if not debt.dropna().empty:
+        debt_max = float(debt.max())
+    else:
+        debt_max = 120.0
+    ax_top2.set_ylim(0, debt_max * 1.2)
+    ax_top2.legend(
+        loc="upper right",
+        frameon=False,
+        fontsize=6,
+        labelcolor=PALETTE["muted"],
+    )
+
+    # Bottom panel: private employment per capita vs. participation rate.
+    ax_bottom = fig.add_axes((0.055, 0.12, 0.79, 0.28))
+    _style_axes(ax_bottom, percent=True)
+    _glow(
+        ax_bottom,
+        ppi_dates,
+        monthly["private_per_capita"].to_numpy(dtype=float),
+        PALETTE["men"],
+        linewidth=1.8,
+        label="Private Employment per Capita (%)",
+    )
+    _glow(
+        ax_bottom,
+        ppi_dates,
+        monthly["rate_total"].to_numpy(dtype=float),
+        PALETTE["women"],
+        linewidth=1.8,
+        label="Civilian LFPR (%)",
+    )
+    ax_bottom.set_ylabel("Percent", color=PALETTE["muted"], fontsize=7)
+    ax_bottom.set_ylim(0, 70)
+    ax_bottom.set_xlim(_dnum("1947-06-01"), _dnum("2027-06-01"))
+    ax_bottom.xaxis.set_major_locator(mdates.YearLocator(10))
+    ax_bottom.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax_bottom.legend(
+        loc="upper left",
+        frameon=False,
+        fontsize=6,
+        labelcolor=PALETTE["muted"],
+    )
+
+    # Preserve the October 2025 shutdown gap as a visual break, not a bridge.
+    for ax in (ax_top, ax_top2, ax_bottom):
+        ax.axvspan(
+            _dnum("2025-09-20"),
+            _dnum("2025-11-10"),
+            color=PALETTE["muted"],
+            alpha=0.10,
+            zorder=1,
+        )
+    ax_bottom.text(
+        _dnum("2025-10-15"),
+        4.0,
+        "no Oct '25 data",
+        color=PALETTE["muted"],
+        fontsize=5.8,
+        ha="center",
+        va="bottom",
+    )
+
+    fig.text(
+        0.055,
+        0.045,
+        "Oct 2025 gap preserved as NaN — no interpolation.",
+        color=PALETTE["muted"],
+        fontsize=5.8,
+        va="bottom",
+    )
+    fig.text(
+        0.945,
+        0.045,
+        "Descriptive association, not causal.",
+        color=PALETTE["muted"],
+        fontsize=5.8,
+        ha="right",
+        va="bottom",
+    )
+
+    path = outdir / "twitter_structural_drag.png"
+    fig.savefig(path, dpi=DPI, facecolor=PALETTE["bg"])
+    plt.close(fig)
+    return path
+
+
 def build_animated(data: WorkforceData, stats: dict, outdir: Path) -> Path:
     """Render an animated reveal of the hero chart."""
     hero = HeroFigure(data, stats)
@@ -846,17 +1041,30 @@ def build_interactive(data: WorkforceData, stats: dict, outdir: Path) -> Path:
     quarterly = data.quarterly
 
     fig = make_subplots(
-        rows=2,
+        rows=4,
         cols=1,
         shared_xaxes=False,
-        vertical_spacing=0.16,
-        row_heights=[0.55, 0.45],
-        specs=[[{"secondary_y": False}], [{"secondary_y": True}]],
+        vertical_spacing=0.10,
+        row_heights=[0.25, 0.25, 0.25, 0.25],
+        specs=[
+            [{"secondary_y": False}],
+            [{"secondary_y": True}],
+            [{"secondary_y": True}],
+            [{"secondary_y": False}],
+        ],
         subplot_titles=(
             "Labor force participation rate (%)",
             (
                 "Median usual weekly earnings, constant 1982-84 $ "
                 "(right axis: W/M ratio)"
+            ),
+            (
+                "Purchasing Power Index (rebased to 100) vs "
+                "Federal Debt % GDP (right axis)"
+            ),
+            (
+                "Private Employment per Capita (%) vs "
+                "Civilian Labor Force Participation Rate (%)"
             ),
         ),
     )
@@ -914,18 +1122,79 @@ def build_interactive(data: WorkforceData, stats: dict, outdir: Path) -> Path:
         secondary_y=True,
     )
 
+    # Row 3: purchasing power index vs. federal debt as % of GDP.
+    ppi = col(monthly, "purchasing_power_index")
+    first_valid = ppi.dropna().iloc[0]
+    ppi = ppi / first_valid * 100.0
+    fig.add_trace(
+        go.Scatter(
+            x=ppi.index,
+            y=ppi,
+            name="Purchasing Power Index (rebased to 100)",
+            mode="lines",
+            line={"color": PALETTE["total"], "width": 2.2},
+            hovertemplate="%{x|%Y-%m}: %{y:.1f}<extra></extra>",
+        ),
+        row=3,
+        col=1,
+        secondary_y=False,
+    )
+    debt = col(quarterly, "debt_to_gdp")
+    fig.add_trace(
+        go.Scatter(
+            x=debt.index,
+            y=debt,
+            name="Federal Debt % GDP",
+            mode="lines",
+            line={"color": PALETTE["accent"], "width": 2.2, "dash": "dash"},
+            hovertemplate="%{x|%Y-%m}: %{y:.1f}%<extra></extra>",
+        ),
+        row=3,
+        col=1,
+        secondary_y=True,
+    )
+
+    # Row 4: private employment per capita vs. civilian participation.
+    fig.add_trace(
+        go.Scatter(
+            x=monthly.index,
+            y=col(monthly, "private_per_capita"),
+            name="Private Employment per Capita (%)",
+            mode="lines",
+            line={"color": PALETTE["men"], "width": 2.2},
+            hovertemplate="%{x|%Y-%m}: %{y:.1f}%<extra></extra>",
+        ),
+        row=4,
+        col=1,
+        secondary_y=False,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=monthly.index,
+            y=col(monthly, "rate_total"),
+            name="Civilian LFPR (%)",
+            mode="lines",
+            line={"color": PALETTE["women"], "width": 2.2},
+            hovertemplate="%{x|%Y-%m}: %{y:.1f}%<extra></extra>",
+        ),
+        row=4,
+        col=1,
+        secondary_y=False,
+    )
+
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor=PALETTE["bg"],
         plot_bgcolor=PALETTE["bg"],
         font={"color": PALETTE["muted"], "size": 12},
         hovermode="x unified",
-        height=950,
+        height=1900,
         width=1300,
         title={
             "text": (
-                "<b>The Great Convergence</b><br>"
-                "<sup>U.S. labor force participation & real weekly earnings, "
+                "<b>The Great Convergence & Structural Drag</b><br>"
+                "<sup>U.S. labor force participation, real earnings, "
+                "purchasing power, and private employment, "
                 "1948–2026 (Oct 2025 not collected)</sup>"
             ),
             "font": {"color": PALETTE["total"], "size": 22},
@@ -953,11 +1222,17 @@ def build_interactive(data: WorkforceData, stats: dict, outdir: Path) -> Path:
 # --------------------------------------------------------------------------
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
+    """Return the CLI argument parser (exposed for tests)."""
     parser = argparse.ArgumentParser(
         description="Build Twitter-ready workforce participation visuals"
     )
     parser.add_argument("--static", action="store_true", help="build the hero PNG")
+    parser.add_argument(
+        "--structural-drag",
+        action="store_true",
+        help="build the structural drag PNG",
+    )
     parser.add_argument(
         "--animated", action="store_true", help="build the animated reveal"
     )
@@ -969,10 +1244,15 @@ def main() -> None:
         "--refresh", action="store_true", help="re-download series from FRED"
     )
     parser.add_argument("--outdir", type=Path, default=OUTPUT_DIR)
+    return parser
+
+
+def main() -> None:
+    parser = _build_parser()
     args = parser.parse_args()
 
     build_everything = args.all or not (
-        args.static or args.animated or args.interactive
+        args.static or args.structural_drag or args.animated or args.interactive
     )
 
     try:
@@ -987,6 +1267,8 @@ def main() -> None:
     built: list[Path] = []
     if build_everything or args.static:
         built.append(build_static(data, stats, args.outdir))
+    if build_everything or args.structural_drag:
+        built.append(build_structural_drag(data, stats, args.outdir))
     if build_everything or args.animated:
         built.append(build_animated(data, stats, args.outdir))
     if build_everything or args.interactive:

@@ -314,9 +314,9 @@
     }
   },
   "coverage": {
-    "series_count": 32,
-    "monthly_span": "1947-01..2026-09",
-    "earnings_span": "1979-01..2026-04",
+    "series_count": 35,
+    "monthly_span": "1939-01..2026-09",
+    "earnings_span": "1966-01..2026-04",
     "missing_periods": [
       "2025-10"
     ]
@@ -327,5 +327,57 @@
     "cumulative_within_group": -4.0929249979852695,
     "cumulative_between_group": -2983.207663520727,
     "year": 2026
+  },
+  "macro": {
+    "purchasing_power": {
+      "cpi": {
+        "first": 30.94,
+        "first_date": "1964-01",
+        "latest": 336.298,
+        "latest_date": "2026-09",
+        "growth_pct": 986.9360051712994
+      },
+      "ahe_nominal": {
+        "first": 2.5,
+        "first_date": "1964-01",
+        "latest": 32.6,
+        "latest_date": "2026-09",
+        "growth_pct": 1204.0
+      },
+      "purchasing_power_index": {
+        "first": 8.080155138978668,
+        "first_date": "1964-01",
+        "latest": 9.693783489643115,
+        "latest_date": "2026-09",
+        "change_pct": 19.970264467823196
+      }
+    },
+    "private_per_capita": {
+      "first": 38.06418915626249,
+      "first_date": "1948-01",
+      "peak": 52.79028118296046,
+      "peak_date": "1999-12",
+      "latest": 49.25241513460157,
+      "latest_date": "2026-09",
+      "change_pct": 29.393049546934424,
+      "change_since_peak": -3.537866048358893
+    },
+    "govt_share_pct": {
+      "first": 13.327540687765262,
+      "first_date": "1939-01",
+      "peak": 19.35782206591116,
+      "peak_date": "1975-07",
+      "latest": 14.667010387062698,
+      "latest_date": "2026-09",
+      "change_pp": 1.3394696992974353
+    },
+    "debt_to_gdp": {
+      "earliest": 40.33999,
+      "earliest_date": "1966-01",
+      "peak": 132.66287,
+      "peak_date": "2020-04",
+      "latest": 122.59387,
+      "latest_date": "2026-01"
+    }
   }
 }

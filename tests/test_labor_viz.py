@@ -14,6 +14,7 @@ import labor_viz
 from labor_viz import (
     ANIMATION_FPS,
     HeroFigure,
+    _build_parser,
     _dnum,
     _finalize_interactive_html,
     _glow,
@@ -21,6 +22,7 @@ from labor_viz import (
     build_animated,
     build_interactive,
     build_static,
+    build_structural_drag,
 )
 from series import PALETTE
 
@@ -398,3 +400,49 @@ def test_reveal_hides_panel_c_until_its_start_fraction(hero):
 
     hero.reveal(0.9 + 0.001)
     assert hero._panel_c.ax.get_visible() is True
+
+
+def test_build_structural_drag_writes_1600x900_png(
+    synthetic_data, synthetic_stats, outdir
+):
+    """Pin (behavior): the structural drag chart is a 1600x900 PNG."""
+    path = build_structural_drag(synthetic_data, synthetic_stats, outdir)
+    assert path == outdir / "twitter_structural_drag.png"
+    assert path.exists()
+    assert path.stat().st_size > 10_000
+    from PIL import Image
+
+    with Image.open(path) as image:
+        assert image.size == (1600, 900)
+
+
+def test_build_structural_drag_handles_nan_gaps_without_warnings(
+    synthetic_data, synthetic_stats, outdir
+):
+    """Pin (behavior): NaN gaps (shutdown months) are preserved as line breaks
+    without raising exceptions or emitting rendering warnings."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        path = build_structural_drag(synthetic_data, synthetic_stats, outdir)
+    assert path.exists()
+    assert path.stat().st_size > 10_000
+    nan_warnings = [
+        warning
+        for warning in caught
+        if "NaN" in str(warning.message) or "nan" in str(warning.message)
+    ]
+    assert not nan_warnings
+
+
+def test_parser_accepts_structural_drag_static_and_refresh():
+    """Pin (behavior): CLI flags for static, structural drag, and refresh parse."""
+    parser = _build_parser()
+    args = parser.parse_args(["--static", "--structural-drag", "--refresh"])
+    assert args.static is True
+    assert args.structural_drag is True
+    assert args.refresh is True
+    assert args.animated is False
+    assert args.interactive is False
+    assert args.all is False

@@ -395,7 +395,15 @@ def compute_stats(data: WorkforceData) -> dict:
     # Add shift-share decomposition to stats
     stats["shift_share"] = _shift_share_stats(data.monthly)
 
-    return stats
+    # Add macroeconomic context metrics
+    stats["macro"] = {
+        "purchasing_power": _purchasing_power_stats(monthly),
+        "private_per_capita": _private_per_capita_stats(monthly),
+        "govt_share_pct": _govt_share_stats(monthly),
+        "debt_to_gdp": _debt_to_gdp_stats(quarterly),
+    }
+
+    return cast(dict, _sanitize_nan(stats))
 
 
 def _shift_share_section(stats: dict) -> str:
@@ -438,6 +446,7 @@ def render_report(data: WorkforceData, stats: dict) -> str:
         _counts_section(stats),
         _checks_section(stats),
         _shift_share_section(stats),  # New section for shift-share analysis
+        _macro_context_section(stats),
         _caveats_section(),
     ]
     return "\n\n".join(sections)
@@ -814,6 +823,127 @@ def _weekly_hours_stats(monthly: pd.DataFrame) -> dict:
     return stats
 
 
+def _purchasing_power_stats(monthly: pd.DataFrame) -> dict:
+    """Compute purchasing power trajectory metrics.
+
+    CPI-U and nominal AHE growth are measured over the *same* aligned span as
+    the purchasing-power index. Aligning on the inner join avoids comparing a
+    longer CPI history against a shorter earnings history: the reported growth
+    rates therefore describe one common window rather than two different ones.
+    """
+    aligned = pd.concat(
+        {
+            "cpi": col(monthly, "cpi"),
+            "ahe": col(monthly, "ahe_production_nominal"),
+            "ppi": col(monthly, "purchasing_power_index"),
+        },
+        axis=1,
+    ).dropna()
+
+    if aligned.empty:
+        raise EmptySeriesError("purchasing power series has no observed values")
+
+    cpi = aligned["cpi"]
+    ahe = aligned["ahe"]
+    ppi = aligned["ppi"]
+
+    return {
+        "cpi": {
+            "first": float(cpi.iloc[0]),
+            "first_date": _ym(cpi.index[0]),
+            "latest": float(cpi.iloc[-1]),
+            "latest_date": _ym(cpi.index[-1]),
+            "growth_pct": float((cpi.iloc[-1] / cpi.iloc[0] - 1) * 100),
+        },
+        "ahe_nominal": {
+            "first": float(ahe.iloc[0]),
+            "first_date": _ym(ahe.index[0]),
+            "latest": float(ahe.iloc[-1]),
+            "latest_date": _ym(ahe.index[-1]),
+            "growth_pct": float((ahe.iloc[-1] / ahe.iloc[0] - 1) * 100),
+        },
+        "purchasing_power_index": {
+            "first": float(ppi.iloc[0]),
+            "first_date": _ym(ppi.index[0]),
+            "latest": float(ppi.iloc[-1]),
+            "latest_date": _ym(ppi.index[-1]),
+            "change_pct": float((ppi.iloc[-1] / ppi.iloc[0] - 1) * 100),
+        },
+    }
+
+
+def _private_per_capita_stats(monthly: pd.DataFrame) -> dict:
+    """Compute private employment per capita metrics."""
+    series = col(monthly, "private_per_capita").dropna()
+    if series.empty:
+        raise EmptySeriesError("private per capita series has no observed values")
+
+    peak_idx = series.idxmax()
+    latest = float(series.iloc[-1])
+    first = float(series.iloc[0])
+
+    return {
+        "first": first,
+        "first_date": _ym(series.index[0]),
+        "peak": float(series.loc[peak_idx]),
+        "peak_date": _ym(peak_idx),
+        "latest": latest,
+        "latest_date": _ym(series.index[-1]),
+        "change_pct": float((latest / first - 1) * 100),
+        "change_since_peak": float(latest - series.loc[peak_idx]),
+    }
+
+
+def _govt_share_stats(monthly: pd.DataFrame) -> dict:
+    """Compute government employment share metrics."""
+    series = col(monthly, "govt_share_pct").dropna()
+    if series.empty:
+        raise EmptySeriesError("government share series has no observed values")
+
+    peak_idx = series.idxmax()
+    latest = float(series.iloc[-1])
+    first = float(series.iloc[0])
+
+    return {
+        "first": first,
+        "first_date": _ym(series.index[0]),
+        "peak": float(series.loc[peak_idx]),
+        "peak_date": _ym(peak_idx),
+        "latest": latest,
+        "latest_date": _ym(series.index[-1]),
+        "change_pp": float(latest - first),
+    }
+
+
+def _debt_to_gdp_stats(quarterly: pd.DataFrame) -> dict:
+    """Compute public debt to GDP ratio metrics."""
+    series = col(quarterly, "debt_to_gdp").dropna()
+    if series.empty:
+        raise EmptySeriesError("debt to GDP series has no observed values")
+
+    peak_idx = series.idxmax()
+
+    return {
+        "earliest": float(series.iloc[0]),
+        "earliest_date": _ym(series.index[0]),
+        "peak": float(series.loc[peak_idx]),
+        "peak_date": _ym(peak_idx),
+        "latest": float(series.iloc[-1]),
+        "latest_date": _ym(series.index[-1]),
+    }
+
+
+def _sanitize_nan(obj):
+    """Recursively replace NaN with None for strict JSON compatibility."""
+    if isinstance(obj, dict):
+        return {key: _sanitize_nan(value) for key, value in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_nan(value) for value in obj]
+    if isinstance(obj, (float, np.floating)) and np.isnan(obj):
+        return None
+    return obj
+
+
 def _header(stats: dict) -> str:
     coverage = stats["coverage"]
     generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
@@ -981,6 +1111,58 @@ def _weekly_hours_section(stats: dict) -> str:
         )
 
     return "## Average Weekly Hours Worked\n\n" + "\n".join(rows) + "\n\n"
+
+
+def _macro_context_section(stats: dict) -> str:
+    """Render the macroeconomic context section."""
+    macro = stats.get("macro", {})
+    pp = macro.get("purchasing_power", {})
+    ppi = pp.get("purchasing_power_index", {})
+    cpi = pp.get("cpi", {})
+    ahe = pp.get("ahe_nominal", {})
+
+    private = macro.get("private_per_capita", {})
+    govt = macro.get("govt_share_pct", {})
+    debt = macro.get("debt_to_gdp", {})
+
+    lines = ["## Macroeconomic Context: Purchasing Power & Sector Distribution"]
+
+    if ppi and cpi and ahe:
+        lines.append(
+            "**Purchasing Power Trajectory:** The purchasing power index went from "
+            f"{ppi['first']:.2f} ({ppi['first_date']}) to {ppi['latest']:.2f} "
+            f"({ppi['latest_date']}), a change of {ppi['change_pct']:+.2f}%. "
+            f"Over the same span, CPI-U grew {cpi['growth_pct']:+.2f}% while "
+            f"nominal average hourly earnings (AHETPI) grew {ahe['growth_pct']:+.2f}%."
+        )
+
+    if private:
+        lines.append(
+            "**Private Employment per Capita:** Private payroll employment equaled "
+            f"{private['peak']:.2f}% of the civilian population at its "
+            f"{private['peak_date']} peak and {private['latest']:.2f}% in "
+            f"{private['latest_date']}. The share is {private['change_pct']:+.2f}% "
+            f"above its {private['first_date']} level."
+        )
+
+    if govt:
+        lines.append(
+            "**Public Sector Share:** Government employment as a share of total "
+            f"payrolls peaked at {govt['peak']:.2f}% in {govt['peak_date']} and "
+            f"stands at {govt['latest']:.2f}% in {govt['latest_date']}. The change "
+            f"from earliest available data ({govt['first_date']}) is "
+            f"{govt['change_pp']:+.2f} percentage points."
+        )
+
+    if debt:
+        lines.append(
+            "**Public Debt to GDP Ratio:** The earliest recorded value is "
+            f"{debt['earliest']:.2f}% ({debt['earliest_date']}), with a peak of "
+            f"{debt['peak']:.2f}% in {debt['peak_date']} and a latest value of "
+            f"{debt['latest']:.2f}% ({debt['latest_date']})."
+        )
+
+    return "\n\n".join(lines) + "\n"
 
 
 def _counts_section(stats: dict) -> str:

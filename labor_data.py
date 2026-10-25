@@ -59,6 +59,7 @@ QUARTERLY_COLUMNS: dict[str, str] = {
     "LES1252881600Q": "weekly_real_total",
     "LES1252881900Q": "weekly_real_men",
     "LES1252882800Q": "weekly_real_women",
+    "GFDEGDQ188S": "debt_to_gdp",
 }
 
 HOURLY_COLUMNS: dict[str, str] = {

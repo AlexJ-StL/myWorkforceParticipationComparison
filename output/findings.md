@@ -1,6 +1,6 @@
 # U.S. Workforce Participation: Findings
 
-Generated 2026-10-24 19:50 UTC from 30 FRED series and 2 BLS series (1947-01..2026-09 monthly, 1979-01..2026-04 quarterly earnings).
+Generated 2026-10-25 03:21 UTC from 33 FRED series and 2 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
 
 **Data gap:** no CPS field work was conducted in October 2025 (2025 federal government shutdown), so every monthly series is missing that month. Gaps are left as-is, never interpolated.
 
@@ -97,6 +97,17 @@ From 2000 to 2026, the change in the overall labor force participation rate (LFP
 The net change in LFPR (within + between = -2987.301 pp) reflects the combined impact of these two fundamental forces shaping the U.S. labor market since the turn of the millennium.
 
 **Key insight:** The demographic aging component has been the dominant factor, reflecting the retirement of the Baby Boomer generation and the aging of the population, while behavioral components have been more modest but still economically significant.
+
+
+## Macroeconomic Context: Purchasing Power & Sector Distribution
+
+**Purchasing Power Trajectory:** The purchasing power index went from 8.08 (1964-01) to 9.69 (2026-09), a change of +19.97%. Over the same span, CPI-U grew +986.94% while nominal average hourly earnings (AHETPI) grew +1204.00%.
+
+**Private Employment per Capita:** Private payroll employment equaled 52.79% of the civilian population at its 1999-12 peak and 49.25% in 2026-09. The share is +29.39% above its 1948-01 level.
+
+**Public Sector Share:** Government employment as a share of total payrolls peaked at 19.36% in 1975-07 and stands at 14.67% in 2026-09. The change from earliest available data (1939-01) is +1.34 percentage points.
+
+**Public Debt to GDP Ratio:** The earliest recorded value is 40.34% (1966-01), with a peak of 132.66% in 2020-04 and a latest value of 122.59% (2026-01).
 
 
 ## Caveats

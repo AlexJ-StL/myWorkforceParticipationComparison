@@ -21,9 +21,15 @@ from analysis import (
     _counts_stats,
     _coverage_summary,
     _covid_window,
+    _debt_to_gdp_stats,
     _earnings_stats,
+    _govt_share_stats,
     _index,
+    _macro_context_section,
     _ols,
+    _private_per_capita_stats,
+    _purchasing_power_stats,
+    _sanitize_nan,
     _series_summary,
     _ym,
     col,
@@ -653,6 +659,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "coverage",
         "weekly_hours",
         "shift_share",
+        "macro",
     }
     assert set(synthetic_stats["rates"]) == {"total", "men", "women"}
     assert set(synthetic_stats["regimes"]) == {"1948-2000", "2000-2019", "2019-2026"}
@@ -673,6 +680,17 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "implied_vs_published_women",
     }
     assert set(synthetic_stats["weekly_hours"]["series"]) == {"total", "men", "women"}
+    assert set(synthetic_stats["macro"]) == {
+        "purchasing_power",
+        "private_per_capita",
+        "govt_share_pct",
+        "debt_to_gdp",
+    }
+    assert set(synthetic_stats["macro"]["purchasing_power"]) == {
+        "cpi",
+        "ahe_nominal",
+        "purchasing_power_index",
+    }
 
 
 def test_compute_stats_rates_match_the_monthly_frame(synthetic_stats, synthetic_data):
@@ -739,7 +757,10 @@ def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
 def test_compute_stats_is_strictly_json_serializable(synthetic_stats):
     """Tripwire for non-finite leakage (D5): summary.json must be standard JSON."""
     text = json.dumps(synthetic_stats, indent=2, allow_nan=False)
-    assert json.loads(text)["coverage"]["missing_periods"] == ["2025-10"]
+    parsed = json.loads(text)
+    assert parsed["coverage"]["missing_periods"] == ["2025-10"]
+    assert "macro" in parsed
+    assert parsed["macro"]["purchasing_power"]["cpi"]["growth_pct"] is not None
 
 
 def test_compute_stats_rejects_a_data_poisoned_with_an_all_nan_series(synthetic_data):
@@ -1379,3 +1400,480 @@ def test_shift_share_stats_integration(synthetic_stats):
     assert shift_share_stats["year"] == 2026
     for key in expected_keys[:-1]:
         assert isinstance(shift_share_stats[key], float)
+
+
+# ---------------------------------------------------------------------------
+# macroeconomic context helpers
+# ---------------------------------------------------------------------------
+
+
+def _macro_monthly() -> pd.DataFrame:
+    """Three-month frame holding only the columns the macro helpers read."""
+    return pd.DataFrame(
+        {
+            "cpi": [100.0, 110.0, 121.0],
+            "ahe_production_nominal": [10.0, 11.0, 12.1],
+            "purchasing_power_index": [10.0, 10.0, 10.0],
+            "private_per_capita": [50.0, 60.0, 55.0],
+            "govt_share_pct": [16.0, 17.5, 15.0],
+        },
+        index=pd.DatetimeIndex(["2020-01-01", "2020-02-01", "2020-03-01"]),
+    )
+
+
+def _debt_quarterly() -> pd.DataFrame:
+    """Four-quarter frame holding the debt-to-GDP column."""
+    return pd.DataFrame(
+        {"debt_to_gdp": [31.0, 50.0, 122.0, 100.0]},
+        index=pd.DatetimeIndex(
+            ["2020-03-31", "2020-06-30", "2020-09-30", "2020-12-31"]
+        ),
+    )
+
+
+def test_purchasing_power_stats_exact_values():
+    stats = _purchasing_power_stats(_macro_monthly())
+
+    cpi = stats["cpi"]
+    assert cpi["first"] == 100.0
+    assert cpi["first_date"] == "2020-01"
+    assert cpi["latest"] == 121.0
+    assert cpi["latest_date"] == "2020-03"
+    assert cpi["growth_pct"] == pytest.approx(21.0)
+
+    ahe = stats["ahe_nominal"]
+    assert ahe["first"] == 10.0
+    assert ahe["first_date"] == "2020-01"
+    assert ahe["latest"] == 12.1
+    assert ahe["latest_date"] == "2020-03"
+    assert ahe["growth_pct"] == pytest.approx(21.0)
+
+    ppi = stats["purchasing_power_index"]
+    assert ppi["first"] == 10.0
+    assert ppi["first_date"] == "2020-01"
+    assert ppi["latest"] == 10.0
+    assert ppi["latest_date"] == "2020-03"
+    assert ppi["change_pct"] == pytest.approx(0.0)
+
+
+def test_purchasing_power_stats_aligns_cpi_and_ahe_on_the_same_span():
+    """CPI growth must not start earlier than the AHE/PPI overlap."""
+    frame = pd.DataFrame(
+        {
+            "cpi": [100.0, 110.0, 121.0, 133.1],
+            "ahe_production_nominal": [np.nan, 11.0, 12.1, 13.31],
+            "purchasing_power_index": [np.nan, 10.0, 10.0, 10.0],
+        },
+        index=pd.DatetimeIndex(
+            ["2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"]
+        ),
+    )
+
+    stats = _purchasing_power_stats(frame)
+
+    # January is outside the aligned span; using it would overstate CPI growth
+    # as 33.1% instead of the 21.0% measured from February.
+    assert stats["cpi"]["first"] == 110.0
+    assert stats["cpi"]["first_date"] == "2020-02"
+    assert stats["cpi"]["growth_pct"] == pytest.approx(21.0)
+    assert stats["ahe_nominal"]["first"] == 11.0
+    assert stats["ahe_nominal"]["first_date"] == "2020-02"
+    assert stats["ahe_nominal"]["growth_pct"] == pytest.approx(21.0)
+    assert stats["purchasing_power_index"]["first_date"] == "2020-02"
+    assert stats["purchasing_power_index"]["latest_date"] == "2020-04"
+
+
+def test_purchasing_power_stats_all_nan_raises_empty_series_error():
+    frame = _macro_monthly().copy()
+    for column in ("cpi", "ahe_production_nominal", "purchasing_power_index"):
+        frame[column] = np.nan
+    with pytest.raises(EmptySeriesError):
+        _purchasing_power_stats(frame)
+
+
+def test_private_per_capita_stats_exact_values():
+    stats = _private_per_capita_stats(_macro_monthly())
+    assert stats["first"] == 50.0
+    assert stats["first_date"] == "2020-01"
+    assert stats["peak"] == 60.0
+    assert stats["peak_date"] == "2020-02"
+    assert stats["latest"] == 55.0
+    assert stats["latest_date"] == "2020-03"
+    assert stats["change_pct"] == pytest.approx(10.0)
+    assert stats["change_since_peak"] == pytest.approx(-5.0)
+
+
+def test_private_per_capita_stats_ignores_leading_nan():
+    frame = _macro_monthly().copy()
+    frame.loc["2020-01-01", "private_per_capita"] = np.nan
+    stats = _private_per_capita_stats(frame)
+    assert stats["first"] == 60.0
+    assert stats["first_date"] == "2020-02"
+    assert stats["latest"] == 55.0
+    assert stats["latest_date"] == "2020-03"
+    assert stats["change_pct"] == pytest.approx((55.0 / 60.0 - 1) * 100)
+
+
+def test_private_per_capita_stats_peak_tie_uses_first_occurrence():
+    frame = _macro_monthly().copy()
+    frame.loc["2020-03-01", "private_per_capita"] = 60.0
+    stats = _private_per_capita_stats(frame)
+    assert stats["peak"] == 60.0
+    assert stats["peak_date"] == "2020-02"
+
+
+def test_private_per_capita_stats_all_nan_raises_empty_series_error():
+    frame = _macro_monthly().copy()
+    frame["private_per_capita"] = np.nan
+    with pytest.raises(EmptySeriesError):
+        _private_per_capita_stats(frame)
+
+
+def test_govt_share_stats_exact_values():
+    stats = _govt_share_stats(_macro_monthly())
+    assert stats["first"] == 16.0
+    assert stats["first_date"] == "2020-01"
+    assert stats["peak"] == 17.5
+    assert stats["peak_date"] == "2020-02"
+    assert stats["latest"] == 15.0
+    assert stats["latest_date"] == "2020-03"
+    assert stats["change_pp"] == pytest.approx(-1.0)
+
+
+def test_govt_share_stats_ignores_leading_nan():
+    frame = _macro_monthly().copy()
+    frame.loc["2020-01-01", "govt_share_pct"] = np.nan
+    stats = _govt_share_stats(frame)
+    assert stats["first"] == 17.5
+    assert stats["first_date"] == "2020-02"
+    assert stats["latest"] == 15.0
+    assert stats["change_pp"] == pytest.approx(-2.5)
+
+
+def test_govt_share_stats_all_nan_raises_empty_series_error():
+    frame = _macro_monthly().copy()
+    frame["govt_share_pct"] = np.nan
+    with pytest.raises(EmptySeriesError):
+        _govt_share_stats(frame)
+
+
+def test_debt_to_gdp_stats_exact_values():
+    stats = _debt_to_gdp_stats(_debt_quarterly())
+    assert stats["earliest"] == 31.0
+    assert stats["earliest_date"] == "2020-03"
+    assert stats["peak"] == 122.0
+    assert stats["peak_date"] == "2020-09"
+    assert stats["latest"] == 100.0
+    assert stats["latest_date"] == "2020-12"
+
+
+def test_debt_to_gdp_stats_ignores_leading_nan():
+    frame = _debt_quarterly().copy()
+    frame.loc["2020-03-31", "debt_to_gdp"] = np.nan
+    stats = _debt_to_gdp_stats(frame)
+    assert stats["earliest"] == 50.0
+    assert stats["earliest_date"] == "2020-06"
+    assert stats["latest"] == 100.0
+
+
+def test_debt_to_gdp_stats_all_nan_raises_empty_series_error():
+    frame = _debt_quarterly().copy()
+    frame["debt_to_gdp"] = np.nan
+    with pytest.raises(EmptySeriesError):
+        _debt_to_gdp_stats(frame)
+
+
+def test_macro_helpers_handle_a_single_observation():
+    monthly = _macro_monthly().iloc[[0]].copy()
+
+    pp = _purchasing_power_stats(monthly)
+    assert pp["cpi"]["growth_pct"] == 0.0
+    assert pp["ahe_nominal"]["growth_pct"] == 0.0
+    assert pp["purchasing_power_index"]["change_pct"] == 0.0
+
+    private = _private_per_capita_stats(monthly)
+    assert private["first"] == 50.0
+    assert private["peak"] == 50.0
+    assert private["latest"] == 50.0
+    assert private["change_pct"] == 0.0
+    assert private["change_since_peak"] == 0.0
+
+    govt = _govt_share_stats(monthly)
+    assert govt["first"] == 16.0
+    assert govt["peak"] == 16.0
+    assert govt["latest"] == 16.0
+    assert govt["change_pp"] == 0.0
+
+    debt = _debt_to_gdp_stats(_debt_quarterly().iloc[[0]])
+    assert debt["earliest"] == 31.0
+    assert debt["peak"] == 31.0
+    assert debt["latest"] == 31.0
+
+
+def test_sanitize_nan_recurses_and_preserves_non_nan_values():
+    payload = {
+        "top": float("nan"),
+        "nested": [1.0, np.float64("nan"), {"deep": np.nan}],
+        "none": None,
+        "text": "value",
+        "zero": 0.0,
+    }
+
+    cleaned = _sanitize_nan(payload)
+
+    assert cleaned == {
+        "top": None,
+        "nested": [1.0, None, {"deep": None}],
+        "none": None,
+        "text": "value",
+        "zero": 0.0,
+    }
+    json.dumps(cleaned, allow_nan=False)
+
+
+def test_sanitize_nan_handles_scalars_and_lists():
+    assert _sanitize_nan(float("nan")) is None
+    assert _sanitize_nan(np.float64("nan")) is None
+    assert _sanitize_nan(1.5) == 1.5
+    assert _sanitize_nan([np.nan, "x"]) == [None, "x"]
+
+
+def _macro_render_stats() -> dict:
+    """Controlled macro block with exact numbers for string assertions."""
+    return {
+        "macro": {
+            "purchasing_power": {
+                "cpi": {
+                    "first": 100.0,
+                    "first_date": "2020-01",
+                    "latest": 121.0,
+                    "latest_date": "2020-03",
+                    "growth_pct": 21.0,
+                },
+                "ahe_nominal": {
+                    "first": 10.0,
+                    "first_date": "2020-01",
+                    "latest": 12.1,
+                    "latest_date": "2020-03",
+                    "growth_pct": 21.0,
+                },
+                "purchasing_power_index": {
+                    "first": 10.0,
+                    "first_date": "2020-01",
+                    "latest": 10.0,
+                    "latest_date": "2020-03",
+                    "change_pct": 0.0,
+                },
+            },
+            "private_per_capita": {
+                "first": 50.0,
+                "first_date": "2020-01",
+                "peak": 60.0,
+                "peak_date": "2020-02",
+                "latest": 55.0,
+                "latest_date": "2020-03",
+                "change_pct": 10.0,
+                "change_since_peak": -5.0,
+            },
+            "govt_share_pct": {
+                "first": 16.0,
+                "first_date": "2020-01",
+                "peak": 17.5,
+                "peak_date": "2020-02",
+                "latest": 15.0,
+                "latest_date": "2020-03",
+                "change_pp": -1.0,
+            },
+            "debt_to_gdp": {
+                "earliest": 31.0,
+                "earliest_date": "2020-03",
+                "peak": 122.0,
+                "peak_date": "2020-09",
+                "latest": 100.0,
+                "latest_date": "2020-12",
+            },
+        }
+    }
+
+
+def test_macro_context_section_renders_exact_figures():
+    text = _macro_context_section(_macro_render_stats())
+    expected = (
+        "## Macroeconomic Context: Purchasing Power & Sector Distribution\n\n"
+        "**Purchasing Power Trajectory:** The purchasing power index went from "
+        "10.00 (2020-01) to 10.00 (2020-03), a change of +0.00%. Over the same "
+        "span, CPI-U grew +21.00% while nominal average hourly earnings (AHETPI) "
+        "grew +21.00%.\n\n"
+        "**Private Employment per Capita:** Private payroll employment equaled "
+        "60.00% of the civilian population at its 2020-02 peak and 55.00% in "
+        "2020-03. The share is +10.00% above its 2020-01 level.\n\n"
+        "**Public Sector Share:** Government employment as a share of total "
+        "payrolls peaked at 17.50% in 2020-02 and stands at 15.00% in 2020-03. "
+        "The change from earliest available data (2020-01) is -1.00 percentage "
+        "points.\n\n"
+        "**Public Debt to GDP Ratio:** The earliest recorded value is 31.00% "
+        "(2020-03), with a peak of 122.00% in 2020-09 and a latest value of "
+        "100.00% (2020-12).\n"
+    )
+    assert text == expected
+
+
+def test_macro_context_section_renders_header_only_without_data():
+    text = _macro_context_section({})
+    assert text == "## Macroeconomic Context: Purchasing Power & Sector Distribution\n"
+
+
+def test_macro_context_section_skips_absent_blocks():
+    stats = _macro_render_stats()
+    del stats["macro"]["purchasing_power"]
+    del stats["macro"]["private_per_capita"]
+    del stats["macro"]["govt_share_pct"]
+    text = _macro_context_section(stats)
+    assert "**Purchasing Power Trajectory:**" not in text
+    assert "**Private Employment per Capita:**" not in text
+    assert "**Public Sector Share:**" not in text
+    assert "**Public Debt to GDP Ratio:**" in text
+
+
+def test_compute_stats_macro_matches_the_assembled_frames(
+    synthetic_stats, synthetic_data
+):
+    monthly = synthetic_data.monthly
+    quarterly = synthetic_data.quarterly
+    macro = synthetic_stats["macro"]
+
+    aligned = pd.concat(
+        {
+            "cpi": monthly["cpi"],
+            "ahe": monthly["ahe_production_nominal"],
+            "ppi": monthly["purchasing_power_index"],
+        },
+        axis=1,
+    ).dropna()
+
+    pp = macro["purchasing_power"]
+    assert pp["cpi"]["first"] == pytest.approx(aligned["cpi"].iloc[0])
+    assert pp["cpi"]["first_date"] == _ym(aligned.index[0])
+    assert pp["cpi"]["latest"] == pytest.approx(aligned["cpi"].iloc[-1])
+    assert pp["cpi"]["latest_date"] == _ym(aligned.index[-1])
+    assert pp["cpi"]["growth_pct"] == pytest.approx(
+        (aligned["cpi"].iloc[-1] / aligned["cpi"].iloc[0] - 1) * 100
+    )
+    assert pp["ahe_nominal"]["first"] == pytest.approx(aligned["ahe"].iloc[0])
+    assert pp["ahe_nominal"]["growth_pct"] == pytest.approx(
+        (aligned["ahe"].iloc[-1] / aligned["ahe"].iloc[0] - 1) * 100
+    )
+    assert pp["purchasing_power_index"]["first"] == pytest.approx(
+        aligned["ppi"].iloc[0]
+    )
+    assert pp["purchasing_power_index"]["latest"] == pytest.approx(
+        aligned["ppi"].iloc[-1]
+    )
+    assert pp["purchasing_power_index"]["change_pct"] == pytest.approx(
+        (aligned["ppi"].iloc[-1] / aligned["ppi"].iloc[0] - 1) * 100
+    )
+
+    private_clean = monthly["private_per_capita"].dropna()
+    private = macro["private_per_capita"]
+    assert private["first"] == pytest.approx(private_clean.iloc[0])
+    assert private["first_date"] == _ym(private_clean.index[0])
+    assert private["latest"] == pytest.approx(private_clean.iloc[-1])
+    assert private["latest_date"] == _ym(private_clean.index[-1])
+    assert private["peak"] == pytest.approx(private_clean.max())
+    assert private["peak_date"] == _ym(private_clean.idxmax())
+    assert private["change_pct"] == pytest.approx(
+        (private_clean.iloc[-1] / private_clean.iloc[0] - 1) * 100
+    )
+    assert private["change_since_peak"] == pytest.approx(
+        private_clean.iloc[-1] - private_clean.max()
+    )
+
+    govt_clean = monthly["govt_share_pct"].dropna()
+    govt = macro["govt_share_pct"]
+    assert govt["first"] == pytest.approx(govt_clean.iloc[0])
+    assert govt["first_date"] == _ym(govt_clean.index[0])
+    assert govt["latest"] == pytest.approx(govt_clean.iloc[-1])
+    assert govt["latest_date"] == _ym(govt_clean.index[-1])
+    assert govt["peak"] == pytest.approx(govt_clean.max())
+    assert govt["peak_date"] == _ym(govt_clean.idxmax())
+    assert govt["change_pp"] == pytest.approx(govt_clean.iloc[-1] - govt_clean.iloc[0])
+
+    debt_clean = quarterly["debt_to_gdp"].dropna()
+    debt = macro["debt_to_gdp"]
+    assert debt["earliest"] == pytest.approx(debt_clean.iloc[0])
+    assert debt["earliest_date"] == _ym(debt_clean.index[0])
+    assert debt["peak"] == pytest.approx(debt_clean.max())
+    assert debt["peak_date"] == _ym(debt_clean.idxmax())
+    assert debt["latest"] == pytest.approx(debt_clean.iloc[-1])
+    assert debt["latest_date"] == _ym(debt_clean.index[-1])
+
+
+def _data_with_macro_gaps(synthetic_data) -> WorkforceData:
+    """Synthetic data with NaN holes in the middle of every macro series."""
+    monthly = synthetic_data.monthly.copy()
+    gap_month = monthly.index[100]
+    for column in (
+        "cpi",
+        "ahe_production_nominal",
+        "purchasing_power_index",
+        "private_per_capita",
+        "govt_share_pct",
+    ):
+        monthly.loc[gap_month, column] = np.nan
+
+    quarterly = synthetic_data.quarterly.copy()
+    quarterly.loc[quarterly.index[10], "debt_to_gdp"] = np.nan
+
+    return WorkforceData(
+        monthly=monthly,
+        quarterly=quarterly,
+        hourly=synthetic_data.hourly,
+        coverage=synthetic_data.coverage,
+    )
+
+
+def test_macro_helpers_tolerate_middle_nan_gaps(synthetic_data):
+    stats = compute_stats(_data_with_macro_gaps(synthetic_data))
+    text = _macro_context_section(stats)
+    assert "**Purchasing Power Trajectory:**" in text
+    json.dumps(stats, allow_nan=False)
+
+
+def test_macro_helpers_tolerate_missing_baseline_observations(synthetic_data):
+    monthly = synthetic_data.monthly.copy()
+    first_month = monthly.index[0]
+    for column in (
+        "cpi",
+        "ahe_production_nominal",
+        "purchasing_power_index",
+        "private_per_capita",
+        "govt_share_pct",
+    ):
+        monthly.loc[first_month, column] = np.nan
+
+    quarterly = synthetic_data.quarterly.copy()
+    quarterly.loc[quarterly.index[0], "debt_to_gdp"] = np.nan
+
+    stats = compute_stats(
+        WorkforceData(
+            monthly=monthly,
+            quarterly=quarterly,
+            hourly=synthetic_data.hourly,
+            coverage=synthetic_data.coverage,
+        )
+    )
+    macro = stats["macro"]
+    assert macro["purchasing_power"]["cpi"]["first_date"] == "1948-02"
+    assert macro["private_per_capita"]["first_date"] == "1948-02"
+    assert macro["govt_share_pct"]["first_date"] == "1948-02"
+    assert macro["debt_to_gdp"]["earliest_date"] == "1979-04"
+    json.dumps(stats, allow_nan=False)
+
+
+def test_render_report_includes_macro_context_section(synthetic_data, synthetic_stats):
+    report = analysis.render_report(synthetic_data, synthetic_stats)
+    assert "## Macroeconomic Context: Purchasing Power & Sector Distribution" in report
+    assert "**Purchasing Power Trajectory:**" in report
+    assert "**Private Employment per Capita:**" in report
+    assert "**Public Sector Share:**" in report
+    assert "**Public Debt to GDP Ratio:**" in report
