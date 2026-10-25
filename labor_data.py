@@ -53,6 +53,14 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "LNU00000012": "population_youth",
     "LNU00000060": "population_prime",
     "LNU00024230": "population_older",
+    # Sectoral headcounts and production/nonsupervisory hourly earnings. The
+    # wage levels live in the monthly frame (not only the hourly frame) because
+    # the sector wage ratios are computed against AHETPI here.
+    "USCONS": "employment_construction",
+    "CES2000000008": "ahe_construction_nominal",
+    "MANEMP": "employment_manufacturing",
+    "CES3000000008": "ahe_manufacturing_nominal",
+    "LNU02032189": "employment_agriculture",
 }
 
 QUARTERLY_COLUMNS: dict[str, str] = {
@@ -179,6 +187,25 @@ def _add_derived_monthly(frame: pd.DataFrame) -> pd.DataFrame:
     out["govt_share_pct"] = _safe_ratio(
         out["employment_government"],
         out["employment_private"] + out["employment_government"],
+    )
+    # Sector wage metrics. Both real-wage columns express 1982-84-dollar
+    # purchasing power by deflating the nominal sector wage by the CPI index
+    # and scaling by 100. The compression ratios express each sector's
+    # production/nonsupervisory wage as a percent of the total-private
+    # production wage (AHETPI); a ratio below 100 means the sector pays less
+    # than the private average. Zero denominators become NaN via _safe_ratio,
+    # and the October 2025 CPI gap propagates as NaN rather than being filled.
+    out["real_construction_hourly"] = _safe_ratio(
+        out["ahe_construction_nominal"], out["cpi"]
+    )
+    out["real_manufacturing_hourly"] = _safe_ratio(
+        out["ahe_manufacturing_nominal"], out["cpi"]
+    )
+    out["construction_to_private_wage_ratio"] = _safe_ratio(
+        out["ahe_construction_nominal"], out["ahe_production_nominal"]
+    )
+    out["manufacturing_to_private_wage_ratio"] = _safe_ratio(
+        out["ahe_manufacturing_nominal"], out["ahe_production_nominal"]
     )
     return out
 

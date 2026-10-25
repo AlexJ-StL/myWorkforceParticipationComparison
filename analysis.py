@@ -418,6 +418,7 @@ def compute_stats(data: WorkforceData) -> dict:
         "govt_share_pct": _govt_share_stats(monthly),
         "debt_to_gdp": _debt_to_gdp_stats(quarterly),
     }
+    stats["sector_wages"] = _sector_wages_stats(monthly)
 
     return cast(dict, _sanitize_nan(stats))
 
@@ -1057,6 +1058,81 @@ def _debt_to_gdp_stats(quarterly: pd.DataFrame) -> dict:
         "peak_date": _ym(peak_idx),
         "latest": float(series.iloc[-1]),
         "latest_date": _ym(series.index[-1]),
+    }
+
+
+def _sector_wages_stats(monthly: pd.DataFrame) -> dict:
+    """Summarize sector employment, real wage growth, and private-pay ratios."""
+    employment_columns = {
+        "construction": "employment_construction",
+        "manufacturing": "employment_manufacturing",
+        "agriculture": "employment_agriculture",
+    }
+    headcount_dynamics: dict[str, dict] = {}
+
+    for sector, column in employment_columns.items():
+        series = col(monthly, column).dropna()
+        if series.empty:
+            raise EmptySeriesError(f"{sector} employment series has no observed values")
+
+        peak_index = series.idxmax()
+        latest = float(series.iloc[-1])
+        headcount_dynamics[sector] = {
+            "peak_headcount": float(series.loc[peak_index]),
+            "peak_date": _ym(peak_index),
+            "latest_headcount": latest,
+            "latest_date": _ym(series.index[-1]),
+        }
+        if sector == "manufacturing":
+            peak = float(series.loc[peak_index])
+            headcount_dynamics[sector]["change_from_peak_pct"] = (
+                float((latest / peak - 1) * 100) if peak != 0 else float("nan")
+            )
+
+    real_wage_columns = {
+        "construction": "real_construction_hourly",
+        "manufacturing": "real_manufacturing_hourly",
+    }
+    real_wage_growth: dict[str, dict] = {}
+    for sector, column in real_wage_columns.items():
+        series = col(monthly, column).dropna()
+        if series.empty:
+            raise EmptySeriesError(f"{sector} real wage series has no observed values")
+
+        first = float(series.iloc[0])
+        latest = float(series.iloc[-1])
+        real_wage_growth[sector] = {
+            "first": first,
+            "first_date": _ym(series.index[0]),
+            "latest": latest,
+            "latest_date": _ym(series.index[-1]),
+            "change_pct": (
+                float((latest / first - 1) * 100) if first != 0 else float("nan")
+            ),
+        }
+
+    ratio_columns = {
+        "construction": "construction_to_private_wage_ratio",
+        "manufacturing": "manufacturing_to_private_wage_ratio",
+    }
+    wage_compression_ratios: dict[str, dict] = {}
+    for sector, column in ratio_columns.items():
+        series = col(monthly, column).dropna()
+        if series.empty:
+            raise EmptySeriesError(f"{sector} wage ratio series has no observed values")
+
+        peak_index = series.idxmax()
+        wage_compression_ratios[sector] = {
+            "peak_ratio": float(series.loc[peak_index]),
+            "peak_date": _ym(peak_index),
+            "current_ratio": float(series.iloc[-1]),
+            "current_date": _ym(series.index[-1]),
+        }
+
+    return {
+        "headcount_dynamics": headcount_dynamics,
+        "real_wage_growth": real_wage_growth,
+        "wage_compression_ratios": wage_compression_ratios,
     }
 
 

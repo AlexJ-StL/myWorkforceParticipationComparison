@@ -37,6 +37,10 @@ MONTHLY_DERIVED = {
     "purchasing_power_index",
     "private_per_capita",
     "govt_share_pct",
+    "real_construction_hourly",
+    "real_manufacturing_hourly",
+    "construction_to_private_wage_ratio",
+    "manufacturing_to_private_wage_ratio",
 }
 QUARTERLY_DERIVED = {"earnings_ratio_nominal", "earnings_ratio_real"}
 HOURLY_DERIVED = {"ahe_real", "ahe_production_real"}
@@ -59,6 +63,8 @@ def monthly_frame() -> pd.DataFrame:
             "weekly_hours_men": [40.0, 41.0],
             "weekly_hours_women": [35.0, 36.0],
             "ahe_production_nominal": [20.0, 30.0],
+            "ahe_construction_nominal": [30.0, 45.0],
+            "ahe_manufacturing_nominal": [25.0, 40.0],
             "cpi": [200.0, 150.0],
             "employment_private": [85.0, 90.0],
             "employment_government": [15.0, 10.0],
@@ -154,6 +160,20 @@ def test_derived_monthly_macro_metrics_exact_values(monthly_frame):
     assert out["govt_share_pct"].iloc[1] == pytest.approx(10.0)
 
 
+def test_derived_monthly_sector_wages_are_exact(monthly_frame):
+    out = _add_derived_monthly(monthly_frame)
+    assert out["real_construction_hourly"].tolist() == pytest.approx([15.0, 30.0])
+    assert out["real_manufacturing_hourly"].tolist() == pytest.approx(
+        [12.5, 40.0 / 1.5]
+    )
+    assert out["construction_to_private_wage_ratio"].tolist() == pytest.approx(
+        [150.0, 150.0]
+    )
+    assert out["manufacturing_to_private_wage_ratio"].tolist() == pytest.approx(
+        [125.0, 400.0 / 3.0]
+    )
+
+
 def test_derived_monthly_gap_is_men_minus_women(monthly_frame):
     out = _add_derived_monthly(monthly_frame)
     np.testing.assert_allclose(
@@ -188,6 +208,8 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
             "weekly_hours_men": [0.0],
             "weekly_hours_women": [35.0],
             "ahe_production_nominal": [0.0],
+            "ahe_construction_nominal": [0.0],
+            "ahe_manufacturing_nominal": [0.0],
             "cpi": [0.0],
             "employment_private": [0.0],
             "employment_government": [0.0],
@@ -207,6 +229,10 @@ def test_derived_monthly_zero_denominators_become_nan_not_inf():
         "purchasing_power_index",
         "private_per_capita",
         "govt_share_pct",
+        "real_construction_hourly",
+        "real_manufacturing_hourly",
+        "construction_to_private_wage_ratio",
+        "manufacturing_to_private_wage_ratio",
     }
     for column in division_columns:
         assert pd.isna(out[column].iloc[0]), f"{column} should be NaN"
@@ -237,6 +263,23 @@ def test_derived_monthly_macro_metrics_zero_and_boundary_cases(monthly_frame):
     # Non-zero row remains exact.
     assert out["purchasing_power_index"].iloc[1] == pytest.approx(10.0)
     assert out["private_per_capita"].iloc[1] == pytest.approx(50.0)
+
+
+def test_derived_monthly_sector_metrics_propagate_nan(monthly_frame):
+    frame = monthly_frame.copy()
+    frame.loc[frame.index[0], "cpi"] = np.nan
+    frame.loc[frame.index[1], "ahe_production_nominal"] = np.nan
+
+    out = _add_derived_monthly(frame)
+
+    assert pd.isna(out["real_construction_hourly"].iloc[0])
+    assert pd.isna(out["real_manufacturing_hourly"].iloc[0])
+    assert out["real_construction_hourly"].iloc[1] == pytest.approx(30.0)
+    assert out["real_manufacturing_hourly"].iloc[1] == pytest.approx(40.0 / 1.5)
+    assert out["construction_to_private_wage_ratio"].iloc[0] == pytest.approx(150.0)
+    assert pd.isna(out["construction_to_private_wage_ratio"].iloc[1])
+    assert out["manufacturing_to_private_wage_ratio"].iloc[0] == pytest.approx(125.0)
+    assert pd.isna(out["manufacturing_to_private_wage_ratio"].iloc[1])
 
 
 @pytest.mark.parametrize(
@@ -437,6 +480,11 @@ def test_assemble_preserves_october_2025_gap_in_derived_columns(synthetic_data):
     # purchasing power and private-per-capita are NaN but government share is not.
     assert pd.isna(gap_row["purchasing_power_index"])
     assert pd.isna(gap_row["private_per_capita"])
+    assert pd.isna(gap_row["employment_agriculture"])
+    assert pd.isna(gap_row["real_construction_hourly"])
+    assert pd.isna(gap_row["real_manufacturing_hourly"])
+    assert np.isfinite(gap_row["construction_to_private_wage_ratio"])
+    assert np.isfinite(gap_row["manufacturing_to_private_wage_ratio"])
     assert np.isfinite(gap_row["govt_share_pct"])
 
 

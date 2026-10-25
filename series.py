@@ -157,6 +157,56 @@ FRED_SERIES: tuple[SeriesSpec, ...] = (
         "SA",
         color=PALETTE["accent"],
     ),
+    # Sectoral employment and wage series (monthly). USCONS/MANEMP are CES
+    # establishment-survey headcounts (SA, thousands); the CES2/3...0008 series
+    # are production/nonsupervisory average hourly earnings for those sectors.
+    # LNU02032189 is the CPS agriculture-and-related-industries employment level,
+    # published without seasonal adjustment.
+    SeriesSpec(
+        "USCONS",
+        "All Employees, Construction",
+        "Construction",
+        "level",
+        "total",
+        "thousands",
+        "SA",
+    ),
+    SeriesSpec(
+        "CES2000000008",
+        "Average Hourly Earnings of Production/Nonsupervisory Employees, Construction",
+        "Construction AHE",
+        "earnings_nominal",
+        "total",
+        "dollars_per_hour",
+        "SA",
+    ),
+    SeriesSpec(
+        "MANEMP",
+        "All Employees, Manufacturing",
+        "Manufacturing",
+        "level",
+        "total",
+        "thousands",
+        "SA",
+    ),
+    SeriesSpec(
+        "CES3000000008",
+        "Average Hourly Earnings of Production/Nonsupervisory Employees, Manufacturing",
+        "Manufacturing AHE",
+        "earnings_nominal",
+        "total",
+        "dollars_per_hour",
+        "SA",
+    ),
+    SeriesSpec(
+        "LNU02032189",
+        "Employed - Agriculture and Related Industries",
+        "Agriculture",
+        "level",
+        "total",
+        "thousands",
+        "NSA",
+    ),
     # Unemployment rates (%, monthly, SA)
     SeriesSpec("UNRATE", "Unemployment Rate", "All", "rate", "total", "percent"),
     SeriesSpec(

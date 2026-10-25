@@ -30,6 +30,7 @@ from analysis import (
     _private_per_capita_stats,
     _purchasing_power_stats,
     _sanitize_nan,
+    _sector_wages_stats,
     _series_summary,
     _ym,
     col,
@@ -661,6 +662,7 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "shift_share",
         "prime_age",
         "macro",
+        "sector_wages",
     }
     assert set(synthetic_stats["rates"]) == {"total", "men", "women"}
     assert set(synthetic_stats["regimes"]) == {"1948-2000", "2000-2019", "2019-2026"}
@@ -692,6 +694,43 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "ahe_nominal",
         "purchasing_power_index",
     }
+    assert set(synthetic_stats["sector_wages"]) == {
+        "headcount_dynamics",
+        "real_wage_growth",
+        "wage_compression_ratios",
+    }
+    assert set(synthetic_stats["sector_wages"]["headcount_dynamics"]) == {
+        "construction",
+        "manufacturing",
+        "agriculture",
+    }
+
+
+def test_compute_stats_sector_wages_use_assembled_monthly_metrics(
+    synthetic_stats, synthetic_data
+):
+    sector_wages = synthetic_stats["sector_wages"]
+    monthly = synthetic_data.monthly
+
+    manufacturing = monthly["employment_manufacturing"].dropna()
+    manufacturing_stats = sector_wages["headcount_dynamics"]["manufacturing"]
+    assert manufacturing_stats["peak_headcount"] == pytest.approx(manufacturing.max())
+    assert manufacturing_stats["peak_date"] == analysis._ym(manufacturing.idxmax())
+    assert manufacturing_stats["latest_headcount"] == pytest.approx(
+        manufacturing.iloc[-1]
+    )
+    assert manufacturing_stats["change_from_peak_pct"] == pytest.approx(
+        (manufacturing.iloc[-1] / manufacturing.max() - 1) * 100
+    )
+
+    for sector in ("construction", "manufacturing"):
+        real_wages = monthly[f"real_{sector}_hourly"].dropna()
+        wage_stats = sector_wages["real_wage_growth"][sector]
+        assert wage_stats["first"] == pytest.approx(real_wages.iloc[0])
+        assert wage_stats["latest"] == pytest.approx(real_wages.iloc[-1])
+        assert wage_stats["change_pct"] == pytest.approx(
+            (real_wages.iloc[-1] / real_wages.iloc[0] - 1) * 100
+        )
 
 
 def test_compute_stats_rates_match_the_monthly_frame(synthetic_stats, synthetic_data):
@@ -749,7 +788,7 @@ def test_compute_stats_implied_matches_published_on_synthetic_data(synthetic_sta
 
 def test_compute_stats_coverage_flags_only_october_2025(synthetic_stats):
     coverage = synthetic_stats["coverage"]
-    assert coverage["series_count"] == 37  # 33 FRED + 4 BLS
+    assert coverage["series_count"] == 42  # 38 FRED + 4 BLS
     assert coverage["missing_periods"] == ["2025-10"]
     assert coverage["monthly_span"] == "1948-01..2026-09"
     assert coverage["earnings_span"] == "1979-01..2026-04"
@@ -1070,7 +1109,7 @@ def test_header_reports_generation_and_span(render_stats):
     text = analysis._header(render_stats)
     assert text.startswith("# U.S. Workforce Participation: Findings\n\n")
     assert "Generated " in text
-    assert "33 FRED series and 4 BLS series" in text
+    assert "38 FRED series and 4 BLS series" in text
     assert "1948-01..2026-09 monthly" in text
     assert "1979-01..2026-04 quarterly earnings" in text
     assert "October 2025" in text
@@ -1406,6 +1445,85 @@ def test_shift_share_stats_integration(synthetic_stats):
 # ---------------------------------------------------------------------------
 # macroeconomic context helpers
 # ---------------------------------------------------------------------------
+
+
+def _sector_wages_monthly() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "employment_construction": [10.0, 30.0, np.nan, 20.0],
+            "employment_manufacturing": [100.0, 80.0, np.nan, 50.0],
+            "employment_agriculture": [3.0, np.nan, 5.0, 4.0],
+            "real_construction_hourly": [10.0, np.nan, 30.0, 20.0],
+            "real_manufacturing_hourly": [8.0, np.nan, 12.0, 6.0],
+            "construction_to_private_wage_ratio": [120.0, np.nan, 150.0, 130.0],
+            "manufacturing_to_private_wage_ratio": [100.0, np.nan, 160.0, 80.0],
+        },
+        index=pd.date_range("2020-01-01", periods=4, freq="MS"),
+    )
+
+
+def test_sector_wages_stats_exact_values_and_gap_handling():
+    stats = _sector_wages_stats(_sector_wages_monthly())
+
+    construction = stats["headcount_dynamics"]["construction"]
+    assert construction["peak_headcount"] == 30.0
+    assert construction["peak_date"] == "2020-02"
+    assert construction["latest_headcount"] == 20.0
+    assert construction["latest_date"] == "2020-04"
+
+    manufacturing = stats["headcount_dynamics"]["manufacturing"]
+    assert manufacturing["peak_headcount"] == 100.0
+    assert manufacturing["peak_date"] == "2020-01"
+    assert manufacturing["latest_headcount"] == 50.0
+    assert manufacturing["latest_date"] == "2020-04"
+    assert manufacturing["change_from_peak_pct"] == pytest.approx(-50.0)
+
+    agriculture = stats["headcount_dynamics"]["agriculture"]
+    assert agriculture["peak_headcount"] == 5.0
+    assert agriculture["peak_date"] == "2020-03"
+    assert agriculture["latest_headcount"] == 4.0
+    assert agriculture["latest_date"] == "2020-04"
+
+    construction_real = stats["real_wage_growth"]["construction"]
+    assert construction_real["first"] == 10.0
+    assert construction_real["first_date"] == "2020-01"
+    assert construction_real["latest"] == 20.0
+    assert construction_real["latest_date"] == "2020-04"
+    assert construction_real["change_pct"] == pytest.approx(100.0)
+
+    manufacturing_real = stats["real_wage_growth"]["manufacturing"]
+    assert manufacturing_real["change_pct"] == pytest.approx(-25.0)
+
+    construction_ratio = stats["wage_compression_ratios"]["construction"]
+    assert construction_ratio == {
+        "peak_ratio": 150.0,
+        "peak_date": "2020-03",
+        "current_ratio": 130.0,
+        "current_date": "2020-04",
+    }
+    manufacturing_ratio = stats["wage_compression_ratios"]["manufacturing"]
+    assert manufacturing_ratio == {
+        "peak_ratio": 160.0,
+        "peak_date": "2020-03",
+        "current_ratio": 80.0,
+        "current_date": "2020-04",
+    }
+
+
+def test_sector_wages_stats_all_nan_series_raise_empty_series_error():
+    frame = _sector_wages_monthly()
+    frame["employment_construction"] = np.nan
+    with pytest.raises(EmptySeriesError, match="construction employment"):
+        _sector_wages_stats(frame)
+
+
+def test_sector_wages_stats_zero_peaks_do_not_divide_by_zero():
+    frame = _sector_wages_monthly()
+    frame["employment_manufacturing"] = 0.0
+    stats = _sector_wages_stats(frame)
+    assert np.isnan(
+        stats["headcount_dynamics"]["manufacturing"]["change_from_peak_pct"]
+    )
 
 
 def _macro_monthly() -> pd.DataFrame:

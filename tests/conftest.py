@@ -66,6 +66,7 @@ MONTHLY_GAPPED = (
     "LNU00000012",
     "LNU00000060",
     "LNU00024230",
+    "LNU02032189",
 )
 
 
@@ -161,6 +162,20 @@ def _build_monthly() -> dict[str, pd.Series]:
     prime_rate_women = np.linspace(73.0, 77.0, n) + 0.5 * _covid_dip(index, 2.5)
     prime_rate = (prime_rate_men + prime_rate_women) / 2.0
     older_rate = np.linspace(35.0, 40.0, n) + 0.5 * _covid_dip(index, 1.5)
+    construction_employment = np.concatenate(
+        [np.linspace(2_000.0, 8_000.0, 700), np.linspace(8_000.0, 7_000.0, n - 700)]
+    )
+    manufacturing_employment = np.concatenate(
+        [
+            np.linspace(17_000.0, 19_000.0, 600),
+            np.linspace(19_000.0, 12_000.0, n - 600),
+        ]
+    )
+    agriculture_employment = np.linspace(1_200.0, 2_000.0, n) + 80.0 * np.sin(
+        np.arange(n) * 2.0 * np.pi / 12.0
+    )
+    construction_wage = np.linspace(2.50, 37.0, n)
+    manufacturing_wage = np.linspace(2.25, 34.0, n)
 
     series = {
         "CIVPART": rate_total,
@@ -192,6 +207,11 @@ def _build_monthly() -> dict[str, pd.Series]:
         "LNU00000012": pop_youth,
         "LNU00000060": pop_prime,
         "LNU00024230": pop_older,
+        "USCONS": construction_employment,
+        "CES2000000008": construction_wage,
+        "MANEMP": manufacturing_employment,
+        "CES3000000008": manufacturing_wage,
+        "LNU02032189": agriculture_employment,
     }
     out = {
         sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()

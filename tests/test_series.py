@@ -97,17 +97,20 @@ def test_sid_resolves_documented_pairs(sex, track, expected):
 
 
 def test_sid_total_earnings_nominal_is_ambiguous():
-    """Three catalog entries match ("total", "earnings_nominal"): the two hourly
-    CES/AHETPI series and the weekly LES series. sid() resolves to the first in
-    catalog order. This test exists to keep that landmine visible: sid() has no
-    in-repo callers, so the ambiguity is latent, not active."""
+    """Sector AHE additions increase the already-known total wage ambiguity."""
     matches = [
         spec.sid
         for spec in FRED_SERIES
         if spec.sex == "total" and spec.track == "earnings_nominal"
     ]
-    assert matches == ["CES0500000003", "AHETPI", "LES1252881500Q"]
-    assert sid("total", "earnings_nominal") == "CES0500000003"
+    assert matches == [
+        "CES2000000008",
+        "CES3000000008",
+        "CES0500000003",
+        "AHETPI",
+        "LES1252881500Q",
+    ]
+    assert sid("total", "earnings_nominal") == "CES2000000008"
 
 
 @pytest.mark.parametrize(
@@ -147,6 +150,20 @@ def test_population_series_are_not_seasonally_adjusted():
     assert BY_SID["LNU00000001"].seasonal == "NSA"
     assert BY_SID["LNU00000002"].seasonal == "NSA"
     assert BY_SID["CIVPART"].seasonal == "SA"
+
+
+def test_sector_series_have_the_requested_catalog_metadata():
+    expected = {
+        "USCONS": ("level", "thousands", "SA"),
+        "CES2000000008": ("earnings_nominal", "dollars_per_hour", "SA"),
+        "MANEMP": ("level", "thousands", "SA"),
+        "CES3000000008": ("earnings_nominal", "dollars_per_hour", "SA"),
+        "LNU02032189": ("level", "thousands", "NSA"),
+    }
+    for series_id, (track, units, seasonal) in expected.items():
+        spec = BY_SID[series_id]
+        assert (spec.track, spec.units, spec.seasonal) == (track, units, seasonal)
+        assert series_id in labor_data.MONTHLY_COLUMNS
 
 
 def test_series_spec_is_a_dataclass_with_expected_defaults():
