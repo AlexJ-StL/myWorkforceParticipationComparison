@@ -1,10 +1,10 @@
 # U.S. Workforce Participation: Findings
 
-Generated 2026-10-25 03:21 UTC from 33 FRED series and 2 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
+Generated 2026-10-25 22:10 UTC from 38 FRED series and 4 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
 
 **Data gap:** no CPS field work was conducted in October 2025 (2025 federal government shutdown), so every monthly series is missing that month. Gaps are left as-is, never interpolated.
 
-**New in this release:** Added monthly average weekly hours worked for men and women in nonagricultural industries (BLS LNS12032194, LNS12032195), covering1948-2026.
+**New in this release:** Added prime-age participation and sector headcount/wage comparisons. Weekly-hours values are omitted because the configured BLS series are not hours measures.
 
 ## Participation levels
 
@@ -16,6 +16,27 @@ Generated 2026-10-25 03:21 UTC from 33 FRED series and 2 BLS series (1939-01..20
 | **Gender gap** (men - women) | 54.7 pp (1948-01) | 54.7 pp (1948-01) | 10.5 pp (2026-09) | -44.2 pp | -44.2 pp |
 
 The gender gap peaked at 54.7 pp in 1948-01 and stands at 10.5 pp in 2026-09 -- a narrowing of 44.2 pp. Men's rate fell 19.5 pp from its 1949-10 peak of 87.4% while women's rose 24.7 pp from 32.0%. Total participation is 5.5 pp below its 2000-01 peak of 67.3%.
+
+## Prime-Age (25–54) Participation vs. Demographic Aging
+
+Participation levels (percent):
+
+| Group | First | Peak | Latest |
+|---|---|---|---|
+| Overall 16+ | 58.6% (1948-01) | 67.3% (2000-01) | 61.8% (2026-09) |
+| Prime-age total | 64.2% (1948-01) | 84.6% (1999-01) | 83.7% (2026-09) |
+| Prime-age men | 96.7% (1948-01) | 97.9% (1954-09) | 89.5% (2026-09) |
+| Prime-age women | 33.5% (1948-01) | 78.5% (2026-03) | 78.0% (2026-09) |
+
+OLS trends (percentage points per year):
+
+| Period | Overall 16+ | Prime-age total | Prime-age men | Prime-age women |
+|---|---:|---:|---:|---:|
+| 1948-2000 | +0.194 pp/yr | +0.426 pp/yr | -0.118 pp/yr | +0.924 pp/yr |
+| 2000-2019 | -0.261 pp/yr | -0.127 pp/yr | -0.171 pp/yr | -0.084 pp/yr |
+| 2019-2026 | -0.026 pp/yr | +0.314 pp/yr | +0.174 pp/yr | +0.443 pp/yr |
+
+From 2000-04 to the latest common observation (2026-09), the 16+ participation rate changed -5.50 pp and prime-age participation changed -0.70 pp. The difference in declines (16+ minus prime-age) was +4.80 pp.
 
 ## Trend regimes (OLS on monthly observations)
 
@@ -49,16 +70,9 @@ Women's real median weekly earnings grew +35.9% since 1979 while men's changed +
 
 **Association with the participation gap:** the earnings ratio and the participation gap move together over 1979-2026 (correlation r = -0.97 contemporaneous, n = 189). This is an association, not evidence of causation.
 
-## Average Weekly Hours Worked
+## Average Weekly Hours Worked: Not Reported
 
-| gender | first | latest | change | change (%) |
-|---|---|---|---|---|
-| Men | $2063 | $2712 | +649 | +31.5% |
-| Women | $1159 | $1500 | +341 | +29.4% |
-| Total | $161100 | $210600 | +49500 | +30.7% |
-| **Hours ratio (M/W)** | 1.78 | 1.81 | +0.028 | slope -0.007 pp/yr |
-
-
+The configured BLS series LNS12032194 and LNS12032195 are employment levels for part-time work for economic reasons, not average weekly hours. Their cached values are excluded from this report until valid hours series are selected.
 
 ## Counts and composition
 
@@ -82,22 +96,9 @@ Women's share of the labor force went from 28.1% (1948-01) to 47.5% (2026-09). T
 
 Labor force levels by gender sum to the published total almost exactly. Implied rates (labor force / population) track the published rates within rounding; the residual differences come from seasonal adjustment and the not-seasonally-adjusted population levels.
 
-## Shift-Share: Demographic Aging vs. Behavioral Participation Shifts
+## Shift-Share: Not Reported
 
-From 2000 to 2026, the change in the overall labor force participation rate (LFPR) was decomposed into two components:
-
-1. **Within-Group Effect (Behavioral):** Changes in participation rates within each age group, holding population shares constant.
-   - Size: -4.093 percentage points
-   - Interpretation: Shifts in labor market behavior within age cohorts
-
-2. **Between-Group Effect (Demographic Aging):** Changes in population shares across age groups, holding rates constant.
-   - Size: -2983.208 percentage points
-   - Interpretation: Aging of the population and changes in age structure
-
-The net change in LFPR (within + between = -2987.301 pp) reflects the combined impact of these two fundamental forces shaping the U.S. labor market since the turn of the millennium.
-
-**Key insight:** The demographic aging component has been the dominant factor, reflecting the retirement of the Baby Boomer generation and the aging of the population, while behavioral components have been more modest but still economically significant.
-
+The current decomposition is not publishable: its between-group term uses population levels instead of population shares, and its youth/prime-age terms overlap. The diagnostic values remain in `summary.json` with status `not_publishable`; do not interpret or cite them.
 
 ## Macroeconomic Context: Purchasing Power & Sector Distribution
 
@@ -110,10 +111,35 @@ The net change in LFPR (within + between = -2987.301 pp) reflects the combined i
 **Public Debt to GDP Ratio:** The earliest recorded value is 40.34% (1966-01), with a peak of 132.66% in 2020-04 and a latest value of 122.59% (2026-01).
 
 
+## Sector Headcount & Physical Labor Wage Dynamics
+
+Headcount levels (thousands of persons):
+
+| Sector | Peak (thousands) | Latest (thousands) |
+|---|---:|---:|
+| Manufacturing | 19,553.0 (1979-06) | 12,652.0 (2026-09) |
+| Construction | 8,364.0 (2026-09) | 8,364.0 (2026-09) |
+| Agriculture | 9,058.0 (1949-06) | 2,636.0 (2026-09) |
+
+Real hourly wages, adjusted by CPI-U:
+
+| Sector | First real hourly wage | Latest real hourly wage | Total change vs. CPI-U |
+|---|---:|---:|---:|
+| Construction | $4.80 (1947-01) | $11.66 (2026-09) | +143.09% |
+| Manufacturing | $4.80 (1947-01) | $8.98 (2026-09) | +87.34% |
+
+Sector wage as a percentage of private-sector average hourly earnings:
+
+| Sector | Peak ratio to private AHE | Current ratio to private AHE |
+|---|---:|---:|
+| Construction | 145.16% (1973-01) | 120.25% (2026-09) |
+| Manufacturing | 107.78% (1985-07) | 92.67% (2026-09) |
+
 ## Caveats
 
 - **Correlation is not causation.** All statistics are descriptive.
 - **October 2025 is missing** from every CPS series (shutdown). No interpolation is applied.
-- Participation rates are seasonally adjusted; BLS weekly hours are not seasonally adjusted.
-- BLS weekly hours cover **nonagricultural industries, 16+ years** and are not limited to full-time workers.
-- BLS series LNS12032194 (men) and LNS12032195 (women) are monthly estimates of average hours worked at work.
+- Participation rates are seasonally adjusted.
+- Prime-age sex-specific LFPR uses BLS observations fetched in bounded year windows; missing observations remain missing.
+- BLS weekly-hours figures are omitted: LNS12032194/195 are employment levels for part-time work for economic reasons, not hours.
+- The shift-share decomposition is omitted from reported results because its between-group and age-group terms are currently invalid.

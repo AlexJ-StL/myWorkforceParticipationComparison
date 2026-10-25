@@ -64,7 +64,7 @@ into a visualization; read it from stats.
 
 Implemented but **not publishable**:
 
-- `series.py` has the demographic mappings (`LNS11300060`, `LNS11324230`, `LNU00000012`, `LNU00000060`, `LNU00024230`). FRED does not publish prime-age LFPR by sex, so `rate_prime_men` / `rate_prime_women` are 16+ proxies (`LNS11300001` / `LNS11300002`), not true prime-age rates.
+- `series.py` has demographic mappings for prime-age LFPR (`LNS11300060`, `LNS11300061`, `LNS11300062`), 55+ LFPR (`LNS11324230`), and population (`LNU00000012`, `LNU00000060`, `LNU00024230`). BLS provides the total and sex-disaggregated prime-age rates; the sex series are fetched in bounded year windows to preserve their full history. The legacy `rate_prime_men` / `rate_prime_women` shift-share inputs remain 16+ proxies (`LNS11300001` / `LNS11300002`); do not interpret them as prime-age rates.
 - `analysis.calculate_shift_share(df_pop, df_lfpr, base_year=2000)` and the `shift_share` block exist. **Defect:** `_between_group_effect()` uses average population *levels* instead of average *rates*, producing values in the thousands of pp (e.g. −2,983 pp for 2026). The youth term also reuses `rate_prime`, and the prime term double-counts prime-total plus prime men/women.
 - `labor_viz.HeroFigure` renders Panel C for the decomposition; the panel should not be cited until the math is fixed.
 - **Data rule to keep:** population shares $w_{i,t} = \text{Pop}_i / \text{Pop}_{\text{total}}$ are computed on annual resampled means before matrix operations.

@@ -142,6 +142,7 @@
     }
   },
   "weekly_hours": {
+    "status": "not_publishable",
     "series": {
       "men": {
         "first": 2063.0,
@@ -314,7 +315,7 @@
     }
   },
   "coverage": {
-    "series_count": 35,
+    "series_count": 42,
     "monthly_span": "1939-01..2026-09",
     "earnings_span": "1966-01..2026-04",
     "missing_periods": [
@@ -322,11 +323,115 @@
     ]
   },
   "shift_share": {
+    "status": "not_publishable",
     "within_group_effect": -4.0929249979852695,
     "between_group_effect": -2983.207663520727,
     "cumulative_within_group": -4.0929249979852695,
     "cumulative_between_group": -2983.207663520727,
     "year": 2026
+  },
+  "prime_age": {
+    "levels": {
+      "total": {
+        "first": 64.2,
+        "first_date": "1948-01",
+        "peak": 84.6,
+        "peak_date": "1999-01",
+        "latest": 83.7,
+        "latest_date": "2026-09",
+        "change_since_first": 19.5,
+        "change_since_peak": -0.8999999999999915,
+        "observations": 944
+      },
+      "men": {
+        "first": 96.7,
+        "first_date": "1948-01",
+        "peak": 97.9,
+        "peak_date": "1954-09",
+        "latest": 89.5,
+        "latest_date": "2026-09",
+        "change_since_first": -7.200000000000003,
+        "change_since_peak": -8.400000000000006,
+        "observations": 944
+      },
+      "women": {
+        "first": 33.5,
+        "first_date": "1948-01",
+        "peak": 78.5,
+        "peak_date": "2026-03",
+        "latest": 78.0,
+        "latest_date": "2026-09",
+        "change_since_first": 44.5,
+        "change_since_peak": -0.5,
+        "observations": 944
+      }
+    },
+    "regimes": {
+      "1948-2000": {
+        "total": {
+          "slope_pp_per_year": 0.42589314838651593,
+          "r2": 0.9664933848622972,
+          "observations": 636
+        },
+        "men": {
+          "slope_pp_per_year": -0.11813035914570277,
+          "r2": 0.9133602592109412,
+          "observations": 636
+        },
+        "women": {
+          "slope_pp_per_year": 0.9241042557841171,
+          "r2": 0.9742287007193443,
+          "observations": 636
+        }
+      },
+      "2000-2019": {
+        "total": {
+          "slope_pp_per_year": -0.12657042656990475,
+          "r2": 0.6041369156335543,
+          "observations": 240
+        },
+        "men": {
+          "slope_pp_per_year": -0.17088473758224895,
+          "r2": 0.7635544628232929,
+          "observations": 240
+        },
+        "women": {
+          "slope_pp_per_year": -0.08381187173388377,
+          "r2": 0.3275995612125904,
+          "observations": 240
+        }
+      },
+      "2019-2026": {
+        "total": {
+          "slope_pp_per_year": 0.31393267030165933,
+          "r2": 0.5515725524608931,
+          "observations": 92
+        },
+        "men": {
+          "slope_pp_per_year": 0.1739150664918059,
+          "r2": 0.30349326467812154,
+          "observations": 92
+        },
+        "women": {
+          "slope_pp_per_year": 0.44302771649968087,
+          "r2": 0.6708120499455434,
+          "observations": 92
+        }
+      }
+    },
+    "demographic_drag": {
+      "baseline_date": "2000-04",
+      "latest_date": "2026-09",
+      "aggregate_start": 67.3,
+      "prime_start": 84.4,
+      "aggregate_latest": 61.8,
+      "prime_latest": 83.7,
+      "aggregate_change_pp": -5.5,
+      "prime_change_pp": -0.7000000000000028,
+      "aggregate_decline_pp": 5.5,
+      "prime_decline_pp": 0.7000000000000028,
+      "demographic_drag_pp": 4.799999999999997
+    }
   },
   "macro": {
     "purchasing_power": {
@@ -378,6 +483,59 @@
       "peak_date": "2020-04",
       "latest": 122.59387,
       "latest_date": "2026-01"
+    }
+  },
+  "sector_wages": {
+    "headcount_dynamics": {
+      "construction": {
+        "peak_headcount": 8364.0,
+        "peak_date": "2026-09",
+        "latest_headcount": 8364.0,
+        "latest_date": "2026-09"
+      },
+      "manufacturing": {
+        "peak_headcount": 19553.0,
+        "peak_date": "1979-06",
+        "latest_headcount": 12652.0,
+        "latest_date": "2026-09",
+        "change_from_peak_pct": -35.29381680560528
+      },
+      "agriculture": {
+        "peak_headcount": 9058.0,
+        "peak_date": "1949-06",
+        "latest_headcount": 2636.0,
+        "latest_date": "2026-09"
+      }
+    },
+    "real_wage_growth": {
+      "construction": {
+        "first": 4.795158286778398,
+        "first_date": "1947-01",
+        "latest": 11.656328613313194,
+        "latest_date": "2026-09",
+        "change_pct": 143.085377295114
+      },
+      "manufacturing": {
+        "first": 4.795158286778398,
+        "first_date": "1947-01",
+        "latest": 8.983104270617131,
+        "latest_date": "2026-09",
+        "change_pct": 87.3369706144233
+      }
+    },
+    "wage_compression_ratios": {
+      "construction": {
+        "peak_ratio": 145.16129032258064,
+        "peak_date": "1973-01",
+        "current_ratio": 120.24539877300613,
+        "current_date": "2026-09"
+      },
+      "manufacturing": {
+        "peak_ratio": 107.78032036613271,
+        "peak_date": "1985-07",
+        "current_ratio": 92.66871165644172,
+        "current_date": "2026-09"
+      }
     }
   }
 }

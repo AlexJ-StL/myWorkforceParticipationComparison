@@ -53,6 +53,12 @@ def test_all_bls_sids_preserves_catalog_order():
     assert ALL_BLS_SIDS == tuple(spec.sid for spec in BLS_SERIES)
 
 
+def test_prime_age_sex_series_use_bls_catalog():
+    assert {"LNS11300061", "LNS11300062"} <= set(ALL_BLS_SIDS)
+    assert "LNS11300061" not in BY_SID
+    assert "LNS11300062" not in BY_SID
+
+
 @pytest.mark.parametrize(
     "mapping_name",
     ["MONTHLY_COLUMNS", "QUARTERLY_COLUMNS", "HOURLY_COLUMNS"],
@@ -158,7 +164,7 @@ def test_sector_series_have_the_requested_catalog_metadata():
         "CES2000000008": ("earnings_nominal", "dollars_per_hour", "SA"),
         "MANEMP": ("level", "thousands", "SA"),
         "CES3000000008": ("earnings_nominal", "dollars_per_hour", "SA"),
-        "LNU02032189": ("level", "thousands", "NSA"),
+        "LNU02034560": ("level", "thousands", "NSA"),
     }
     for series_id, (track, units, seasonal) in expected.items():
         spec = BY_SID[series_id]

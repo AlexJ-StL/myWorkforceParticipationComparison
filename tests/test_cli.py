@@ -33,7 +33,38 @@ def test_analysis_main_writes_findings_and_summary(
     monkeypatch.setattr(sys, "argv", ["analysis.py", "--outdir", str(outdir)])
     analysis.main()
     assert (outdir / "findings.md").exists()
-    assert (outdir / "summary.json").exists()
+    summary = json.loads((outdir / "summary.json").read_text(encoding="utf-8"))
+    assert isinstance(summary["prime_age"], dict)
+    assert set(summary["prime_age"]) == {"levels", "regimes", "demographic_drag"}
+    assert isinstance(summary["prime_age"]["levels"]["total"]["latest"], float)
+    assert isinstance(summary["prime_age"]["regimes"]["2019-2026"]["total"], dict)
+    assert isinstance(
+        summary["prime_age"]["demographic_drag"]["demographic_drag_pp"], float
+    )
+    assert isinstance(summary["sector_wages"], dict)
+    assert set(summary["sector_wages"]) == {
+        "headcount_dynamics",
+        "real_wage_growth",
+        "wage_compression_ratios",
+    }
+    assert isinstance(
+        summary["sector_wages"]["headcount_dynamics"]["agriculture"][
+            "latest_headcount"
+        ],
+        float,
+    )
+    assert isinstance(
+        summary["sector_wages"]["real_wage_growth"]["manufacturing"]["change_pct"],
+        float,
+    )
+    assert isinstance(
+        summary["sector_wages"]["wage_compression_ratios"]["construction"][
+            "current_ratio"
+        ],
+        float,
+    )
+    assert summary["shift_share"]["status"] == "not_publishable"
+    assert summary["weekly_hours"]["status"] == "not_publishable"
 
 
 def test_analysis_main_refresh_flag_passes_through(

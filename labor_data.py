@@ -44,8 +44,8 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "POPTHM": "population_all_ages",
     "LNS12032194": "weekly_hours_men",
     "LNS12032195": "weekly_hours_women",
-    # Demographics expansion series. LNS11300060 (total 25-54) is mirrored by
-    # FRED; LNS11300061/62 (men/women 25-54) come from the BLS API.
+    # Prime-age (25-54) participation rates for total, men, and women; the sex
+    # series are fetched from BLS in bounded year windows for full history.
     "LNS11300060": "lfpr_prime_total",
     "LNS11300061": "lfpr_prime_men",
     "LNS11300062": "lfpr_prime_women",
@@ -60,7 +60,7 @@ MONTHLY_COLUMNS: dict[str, str] = {
     "CES2000000008": "ahe_construction_nominal",
     "MANEMP": "employment_manufacturing",
     "CES3000000008": "ahe_manufacturing_nominal",
-    "LNU02032189": "employment_agriculture",
+    "LNU02034560": "employment_agriculture",
 }
 
 QUARTERLY_COLUMNS: dict[str, str] = {
@@ -154,8 +154,7 @@ def _add_derived_monthly(frame: pd.DataFrame) -> pd.DataFrame:
     )
     # Standardized prime-age columns (lfpr_prime_total / _men / _women) arrive
     # directly from MONTHLY_COLUMNS. Missing months -- including the October
-    # 2025 shutdown gap and any years the BLS API truncates -- remain NaN and
-    # are never interpolated.
+    # 2025 shutdown gap -- remain NaN and are never interpolated.
     #
     # Legacy aliases retained for the shift-share decomposition, whose contract
     # predates the sex-disaggregated prime-age series. The prime total is the

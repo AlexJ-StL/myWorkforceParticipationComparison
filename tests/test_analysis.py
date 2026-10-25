@@ -704,6 +704,16 @@ def test_compute_stats_produces_every_expected_block(synthetic_stats):
         "manufacturing",
         "agriculture",
     }
+    assert set(synthetic_stats["prime_age"]) == {
+        "levels",
+        "regimes",
+        "demographic_drag",
+    }
+    assert set(synthetic_stats["prime_age"]["regimes"]["1948-2000"]) == {
+        "total",
+        "men",
+        "women",
+    }
 
 
 def test_compute_stats_sector_wages_use_assembled_monthly_metrics(
@@ -801,6 +811,33 @@ def test_compute_stats_is_strictly_json_serializable(synthetic_stats):
     assert parsed["coverage"]["missing_periods"] == ["2025-10"]
     assert "macro" in parsed
     assert parsed["macro"]["purchasing_power"]["cpi"]["growth_pct"] is not None
+    assert isinstance(parsed["prime_age"], dict)
+    assert set(parsed["prime_age"]) == {
+        "levels",
+        "regimes",
+        "demographic_drag",
+    }
+    assert isinstance(parsed["prime_age"]["levels"]["total"]["latest"], float)
+    assert isinstance(
+        parsed["prime_age"]["demographic_drag"]["demographic_drag_pp"], float
+    )
+    assert isinstance(parsed["sector_wages"], dict)
+    assert set(parsed["sector_wages"]) == {
+        "headcount_dynamics",
+        "real_wage_growth",
+        "wage_compression_ratios",
+    }
+    assert set(parsed["sector_wages"]["headcount_dynamics"]) == {
+        "construction",
+        "manufacturing",
+        "agriculture",
+    }
+    assert isinstance(
+        parsed["sector_wages"]["real_wage_growth"]["construction"]["change_pct"],
+        float,
+    )
+    assert parsed["shift_share"]["status"] == "not_publishable"
+    assert parsed["weekly_hours"]["status"] == "not_publishable"
 
 
 def test_compute_stats_rejects_a_data_poisoned_with_an_all_nan_series(synthetic_data):
@@ -1102,6 +1139,119 @@ def render_stats() -> dict:
                 },
             },
         },
+        "prime_age": {
+            "levels": {
+                "total": {
+                    "first": 75.0,
+                    "first_date": "1948-01",
+                    "peak": 85.0,
+                    "peak_date": "2000-04",
+                    "latest": 80.0,
+                    "latest_date": "2026-09",
+                },
+                "men": {
+                    "first": 90.0,
+                    "first_date": "1948-01",
+                    "peak": 93.0,
+                    "peak_date": "2000-01",
+                    "latest": 88.0,
+                    "latest_date": "2026-09",
+                },
+                "women": {
+                    "first": 45.0,
+                    "first_date": "1948-01",
+                    "peak": 79.0,
+                    "peak_date": "2000-06",
+                    "latest": 75.0,
+                    "latest_date": "2026-09",
+                },
+            },
+            "regimes": {
+                "1948-2000": {
+                    name: {"slope_pp_per_year": slope}
+                    for name, slope in (
+                        ("total", 0.150),
+                        ("men", -0.050),
+                        ("women", 0.300),
+                    )
+                },
+                "2000-2019": {
+                    name: {"slope_pp_per_year": slope}
+                    for name, slope in (
+                        ("total", -0.100),
+                        ("men", -0.200),
+                        ("women", -0.050),
+                    )
+                },
+                "2019-2026": {
+                    name: {"slope_pp_per_year": slope}
+                    for name, slope in (
+                        ("total", 0.250),
+                        ("men", 0.100),
+                        ("women", 0.400),
+                    )
+                },
+            },
+            "demographic_drag": {
+                "baseline_date": "2000-04",
+                "latest_date": "2026-09",
+                "aggregate_change_pp": -5.0,
+                "prime_change_pp": -1.0,
+                "demographic_drag_pp": 4.0,
+            },
+        },
+        "sector_wages": {
+            "headcount_dynamics": {
+                "manufacturing": {
+                    "peak_headcount": 20000.0,
+                    "peak_date": "1979-06",
+                    "latest_headcount": 12000.0,
+                    "latest_date": "2026-09",
+                },
+                "construction": {
+                    "peak_headcount": 8000.0,
+                    "peak_date": "2006-05",
+                    "latest_headcount": 7000.0,
+                    "latest_date": "2026-09",
+                },
+                "agriculture": {
+                    "peak_headcount": 2500.0,
+                    "peak_date": "1948-01",
+                    "latest_headcount": 2000.0,
+                    "latest_date": "2026-09",
+                },
+            },
+            "real_wage_growth": {
+                "construction": {
+                    "first": 20.0,
+                    "first_date": "1964-01",
+                    "latest": 30.0,
+                    "latest_date": "2026-09",
+                    "change_pct": 50.0,
+                },
+                "manufacturing": {
+                    "first": 15.0,
+                    "first_date": "1964-01",
+                    "latest": 18.0,
+                    "latest_date": "2026-09",
+                    "change_pct": 20.0,
+                },
+            },
+            "wage_compression_ratios": {
+                "construction": {
+                    "peak_ratio": 110.0,
+                    "peak_date": "1970-01",
+                    "current_ratio": 95.0,
+                    "current_date": "2026-09",
+                },
+                "manufacturing": {
+                    "peak_ratio": 105.0,
+                    "peak_date": "1980-01",
+                    "current_ratio": 90.0,
+                    "current_date": "2026-09",
+                },
+            },
+        },
     }
 
 
@@ -1198,18 +1348,28 @@ def test_caveats_section_covers_the_known_limitations():
     assert "Correlation is not causation" in text
     assert "October 2025 is missing" in text
     assert "seasonally adjusted" in text
-    assert "workers" in text
-    assert "BLS weekly hours" in text
-    assert "nonagricultural industries" in text
+    assert "BLS weekly-hours figures" in text
+    assert "LNS12032194/195" in text
+    assert "part-time work" in text
+    assert "shift-share decomposition is omitted" in text
 
 
 def test_weekly_hours_section_numbers_and_framing(render_stats):
     text = analysis._weekly_hours_section(render_stats)
-    assert "Men" in text
-    assert "Women" in text
-    assert "Total" in text
-    assert "Hours ratio (M/W)" in text
-    assert "+5.0%" in text or "5.0%" in text
+    assert "## Average Weekly Hours Worked: Not Reported" in text
+    assert "LNS12032194 and LNS12032195" in text
+    assert "employment levels for part-time work for economic reasons" in text
+    assert "average weekly hours" in text
+    assert "| gender |" not in text
+
+
+def test_shift_share_section_marks_nonpublishable_values():
+    text = analysis._shift_share_section({})
+    assert "## Shift-Share: Not Reported" in text
+    assert "population levels instead of population shares" in text
+    assert "youth/prime-age terms overlap" in text
+    assert "`not_publishable`" in text
+    assert "-2983" not in text
 
 
 def test_shift_share_calculates_decomposition():
@@ -1430,6 +1590,7 @@ def test_shift_share_stats_integration(synthetic_stats):
     assert isinstance(shift_share_stats, dict)
 
     expected_keys = [
+        "status",
         "within_group_effect",
         "between_group_effect",
         "cumulative_within_group",
@@ -1438,7 +1599,8 @@ def test_shift_share_stats_integration(synthetic_stats):
     ]
     assert set(shift_share_stats) == set(expected_keys)
     assert shift_share_stats["year"] == 2026
-    for key in expected_keys[:-1]:
+    assert shift_share_stats["status"] == "not_publishable"
+    for key in expected_keys[1:-1]:
         assert isinstance(shift_share_stats[key], float)
 
 
@@ -1991,11 +2153,65 @@ def test_macro_helpers_tolerate_missing_baseline_observations(synthetic_data):
 
 def test_render_report_includes_macro_context_section(synthetic_data, synthetic_stats):
     report = analysis.render_report(synthetic_data, synthetic_stats)
+    assert "## Prime-Age (25–54) Participation" in report
+    assert "## Sector Headcount & Physical Labor Wage Dynamics" in report
     assert "## Macroeconomic Context: Purchasing Power & Sector Distribution" in report
     assert "**Purchasing Power Trajectory:**" in report
     assert "**Private Employment per Capita:**" in report
     assert "**Public Sector Share:**" in report
     assert "**Public Debt to GDP Ratio:**" in report
+
+
+def test_prime_age_section_renders_levels_regimes_and_exact_decline_difference(
+    render_stats,
+):
+    text = analysis._prime_age_section(render_stats)
+    assert "## Prime-Age (25–54) Participation vs. Demographic Aging" in text
+    assert "| Overall 16+ | 58.6% (1948-01) | 67.3% (2000-01)" in text
+    assert "| Prime-age total | 75.0% (1948-01) | 85.0% (2000-04)" in text
+    assert (
+        "| Prime-age men | 90.0% (1948-01) | 93.0% (2000-01) | 88.0% (2026-09) |"
+        in text
+    )
+    assert (
+        "| Prime-age women | 45.0% (1948-01) | 79.0% (2000-06) | 75.0% (2026-09) |"
+        in text
+    )
+    assert (
+        "| Period | Overall 16+ | Prime-age total | Prime-age men | Prime-age women |"
+        in text
+    )
+    assert (
+        "| 1948-2000 | +0.123 pp/yr | +0.150 pp/yr | -0.050 pp/yr | +0.300 pp/yr |"
+        in text
+    )
+    assert (
+        "| 2000-2019 | -0.045 pp/yr | -0.100 pp/yr | -0.200 pp/yr | -0.050 pp/yr |"
+        in text
+    )
+    assert (
+        "| 2019-2026 | -0.201 pp/yr | +0.250 pp/yr | +0.100 pp/yr | +0.400 pp/yr |"
+        in text
+    )
+    assert "From 2000-04 to the latest common observation (2026-09)" in text
+    assert "difference in declines (16+ minus prime-age) was +4.00 pp" in text
+
+
+def test_sector_wages_section_renders_headcounts_real_growth_and_ratios(render_stats):
+    text = analysis._sector_wages_section(render_stats)
+    assert "## Sector Headcount & Physical Labor Wage Dynamics" in text
+    assert "| Manufacturing | 20,000.0 (1979-06) | 12,000.0 (2026-09) |" in text
+    assert "| Construction | 8,000.0 (2006-05) | 7,000.0 (2026-09) |" in text
+    assert "| Agriculture | 2,500.0 (1948-01) | 2,000.0 (2026-09) |" in text
+    assert "| Construction | $20.00 (1964-01) | $30.00 (2026-09) | +50.00% |" in text
+    assert "| Manufacturing | $15.00 (1964-01) | $18.00 (2026-09) | +20.00% |" in text
+    assert "| Construction | 110.00% (1970-01) | 95.00% (2026-09) |" in text
+    assert "| Manufacturing | 105.00% (1980-01) | 90.00% (2026-09) |" in text
+
+
+@pytest.mark.parametrize("value", [None, np.nan, np.inf, -np.inf])
+def test_report_number_marks_missing_or_nonfinite_values(value):
+    assert analysis._report_number(value, ".2f") == "n/a"
 
 
 # ---------------------------------------------------------------------------
@@ -2022,6 +2238,7 @@ def _prime_frame_2020_2021() -> pd.DataFrame:
     index = pd.date_range("2020-01-01", "2021-12-01", freq="MS")
     return pd.DataFrame(
         {
+            "lfpr_prime_total": np.linspace(80.0, 78.0, 24),
             "lfpr_prime_men": np.linspace(90.0, 88.0, 24),
             "lfpr_prime_women": np.linspace(71.0, 72.0, 24),
         },
@@ -2097,14 +2314,20 @@ def test_prime_age_regimes_exact_slopes_and_r2():
     regimes = analysis._prime_age_regimes(_prime_frame_2020_2021())
     # Only the 2019-2026 window has observations in this frame.
     for label in ("1948-2000", "2000-2019"):
-        for sex in ("men", "women"):
-            assert np.isnan(regimes[label][sex]["slope_pp_per_year"])
-            assert np.isnan(regimes[label][sex]["r2"])
-            assert regimes[label][sex]["observations"] == 0
+        for group in ("total", "men", "women"):
+            assert np.isnan(regimes[label][group]["slope_pp_per_year"])
+            assert np.isnan(regimes[label][group]["r2"])
+            assert regimes[label][group]["observations"] == 0
 
     # np.linspace spans 23 month-steps, so the exact slope is delta/(23/12).
+    total_slope = -2.0 / (23 / 12)
     men_slope = -2.0 / (23 / 12)
     women_slope = 1.0 / (23 / 12)
+    assert regimes["2019-2026"]["total"]["slope_pp_per_year"] == pytest.approx(
+        total_slope
+    )
+    assert regimes["2019-2026"]["total"]["r2"] == pytest.approx(1.0)
+    assert regimes["2019-2026"]["total"]["observations"] == 24
     assert regimes["2019-2026"]["men"]["slope_pp_per_year"] == pytest.approx(men_slope)
     assert regimes["2019-2026"]["men"]["r2"] == pytest.approx(1.0)
     assert regimes["2019-2026"]["men"]["observations"] == 24
@@ -2141,6 +2364,14 @@ def test_prime_age_drag_propagates_nan_baseline():
     # The aggregate side stays fully observed.
     assert drag["aggregate_start"] == 60.0
     assert drag["aggregate_decline_pp"] == pytest.approx(-1.0)
+
+
+def test_missing_prime_age_regime_trends_serialize_as_json_null():
+    regimes = analysis._prime_age_regimes(_prime_frame_2020_2021())
+    payload = analysis._sanitize_nan(regimes)
+    parsed = json.loads(json.dumps(payload, allow_nan=False))
+    assert parsed["1948-2000"]["total"]["slope_pp_per_year"] is None
+    assert parsed["2000-2019"]["women"]["r2"] is None
 
 
 def test_prime_age_stats_reports_missing_columns():

@@ -341,21 +341,74 @@ def test_bls_stale_cache_triggers_refetch(write_cache, fake_get):
 
     new_json = json.dumps(
         {
-            "series": [
-                {
-                    "seriesID": "LNS12032194",
-                    "data": [{"year": "2020", "period": "M01", "value": "99.0"}],
-                }
-            ]
+            "status": "REQUEST_SUCCEEDED",
+            "Results": {
+                "series": [
+                    {
+                        "seriesID": "LNS12032194",
+                        "data": [{"year": "2020", "period": "M01", "value": "99.0"}],
+                    }
+                ]
+            },
         }
     )
     fake_get.install(_CsvResponse(new_json))
     series = fetch_bls_series("LNS12032194")
     assert series.iloc[-1] == 99.0
-    assert len(fake_get.calls) == 1
+    assert len(fake_get.calls) > 1
     assert fake_get.calls[0]["kwargs"].get("json", {}).get("seriesid") == [
         "LNS12032194"
     ]
+
+
+@pytest.mark.parametrize(("api_key", "years_per_request"), [(None, 10), ("key", 20)])
+def test_bls_fetches_full_history_in_bounded_year_chunks(
+    fake_get, api_key, years_per_request
+):
+    end_year = fred_data.datetime.now(fred_data.UTC).year
+    expected_windows = [
+        (start, min(start + years_per_request - 1, end_year))
+        for start in range(1948, end_year + 1, years_per_request)
+    ]
+    next_record = iter(enumerate(expected_windows))
+
+    def response(_sid):
+        index, (start_year, _) = next(next_record)
+        return _CsvResponse(
+            json.dumps(
+                {
+                    "status": "REQUEST_SUCCEEDED",
+                    "Results": {
+                        "series": [
+                            {
+                                "seriesID": "LNS11300061",
+                                "data": [
+                                    {
+                                        "year": str(start_year),
+                                        "period": "M01",
+                                        "value": str(index),
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                }
+            )
+        )
+
+    fake_get.install(response)
+    series = fetch_bls_series("LNS11300061", api_key=api_key)
+
+    requests = [call["kwargs"]["json"] for call in fake_get.calls]
+    actual_windows = [
+        (int(request["startyear"]), int(request["endyear"])) for request in requests
+    ]
+    assert actual_windows == expected_windows
+    assert list(series.index) == list(
+        pd.to_datetime([f"{start}-01-01" for start, _ in expected_windows])
+    )
+    assert series.tolist() == [float(index) for index in range(len(expected_windows))]
+    assert all(request.get("apikey") == api_key for request in requests)
 
 
 def test_bls_unknown_sid_fails_before_any_network_call(fake_get):
@@ -376,14 +429,21 @@ def test_fetch_all_returns_every_catalog_series(fake_get, fred_csv):
             return _CsvResponse(
                 json.dumps(
                     {
-                        "series": [
-                            {
-                                "seriesID": sid,
-                                "data": [
-                                    {"year": "2020", "period": "M01", "value": "1.5"}
-                                ],
-                            }
-                        ]
+                        "status": "REQUEST_SUCCEEDED",
+                        "Results": {
+                            "series": [
+                                {
+                                    "seriesID": sid,
+                                    "data": [
+                                        {
+                                            "year": "2020",
+                                            "period": "M01",
+                                            "value": "1.5",
+                                        }
+                                    ],
+                                }
+                            ]
+                        },
                     }
                 )
             )
@@ -400,7 +460,7 @@ def test_fetch_all_returns_every_catalog_series(fake_get, fred_csv):
         )
         requested.add(sid)
     assert requested == set(ALL_FRED_SIDS) | set(ALL_BLS_SIDS)
-    assert len(fake_get.calls) == len(ALL_FRED_SIDS) + len(ALL_BLS_SIDS)
+    assert len(fake_get.calls) > len(ALL_FRED_SIDS) + len(ALL_BLS_SIDS)
 
 
 # ---------------------------------------------------------------------------

@@ -401,14 +401,19 @@ def compute_stats(data: WorkforceData) -> dict:
     stats["counts"] = _counts_stats(monthly)
     stats["checks"] = _consistency_checks(monthly)
     stats["coverage"] = _coverage_summary(data)
-    stats["weekly_hours"] = _weekly_hours_stats(monthly)
+    stats["weekly_hours"] = {
+        "status": "not_publishable",
+        **_weekly_hours_stats(monthly),
+    }
 
     # Add shift-share decomposition to stats
-    stats["shift_share"] = _shift_share_stats(data.monthly)
+    stats["shift_share"] = {
+        "status": "not_publishable",
+        **_shift_share_stats(data.monthly),
+    }
 
     # Prime-age (25-54) demographic isolation. This block is computed and
-    # returned for downstream consumers; it deliberately does not alter the
-    # findings.md renderer in this phase.
+    # returned for downstream consumers and rendered in findings.md.
     stats["prime_age"] = _prime_age_stats(monthly)
 
     # Add macroeconomic context metrics
@@ -423,31 +428,14 @@ def compute_stats(data: WorkforceData) -> dict:
     return cast(dict, _sanitize_nan(stats))
 
 
-def _shift_share_section(stats: dict) -> str:
-    """Render the shift-share decomposition section of the report."""
-    ss = stats.get("shift_share", {})
-    within = ss.get("within_group_effect", 0.0)
-    between = ss.get("between_group_effect", 0.0)
-
+def _shift_share_section(_stats: dict) -> str:
+    """Explain why the known-invalid shift-share values are not reported."""
     return (
-        "## Shift-Share: Demographic Aging vs. Behavioral Participation Shifts\n\n"
-        f"From 2000 to {ss.get('year', 2026)}, the change in the overall labor force "
-        f"participation rate (LFPR) was decomposed into two components:\n\n"
-        "1. **Within-Group Effect (Behavioral):** Changes in participation rates within "
-        f"each age group, holding population shares constant.\n"
-        f"   - Size: {within:+.3f} percentage points\n"
-        f"   - Interpretation: Shifts in labor market behavior within age cohorts\n\n"
-        "2. **Between-Group Effect (Demographic Aging):** Changes in population "
-        f"shares across age groups, holding rates constant.\n"
-        f"   - Size: {between:+.3f} percentage points\n"
-        f"   - Interpretation: Aging of the population and changes in age structure\n\n"
-        f"The net change in LFPR (within + between = {within + between:+.3f} pp) reflects "
-        "the combined impact of these two fundamental forces shaping the U.S. labor "
-        "market since the turn of the millennium.\n\n"
-        "**Key insight:** The demographic aging component has been the dominant factor, "
-        "reflecting the retirement of the Baby Boomer generation and the aging of the "
-        "population, while behavioral components have been more modest but still "
-        "economically significant.\n"
+        "## Shift-Share: Not Reported\n\n"
+        "The current decomposition is not publishable: its between-group term uses "
+        "population levels instead of population shares, and its youth/prime-age "
+        "terms overlap. The diagnostic values remain in `summary.json` with status "
+        "`not_publishable`; do not interpret or cite them."
     )
 
 
@@ -456,6 +444,7 @@ def render_report(data: WorkforceData, stats: dict) -> str:
     sections = [
         _header(stats),
         _participation_section(stats),
+        _prime_age_section(stats),
         _regime_section(stats),
         _covid_section(stats),
         _earnings_section(stats),
@@ -464,6 +453,7 @@ def render_report(data: WorkforceData, stats: dict) -> str:
         _checks_section(stats),
         _shift_share_section(stats),  # New section for shift-share analysis
         _macro_context_section(stats),
+        _sector_wages_section(stats),
         _caveats_section(),
     ]
     return "\n\n".join(sections)
@@ -625,12 +615,12 @@ def _prime_age_levels(monthly: pd.DataFrame) -> dict:
 
 
 def _prime_age_regimes(monthly: pd.DataFrame) -> dict:
-    """OLS slope (pp/year) and R-squared for prime-age men and women by regime."""
+    """OLS slope (pp/year) and R-squared for prime-age groups by regime."""
     regimes: dict = {}
     for label, start, end in REGIMES:
         window = monthly.loc[start:end]
         regimes[label] = {}
-        for name in ("men", "women"):
+        for name in ("total", "men", "women"):
             series = col(window, PRIME_COLUMNS[name])
             slope, r2 = _ols(series)
             regimes[label][name] = {
@@ -1158,9 +1148,9 @@ def _header(stats: dict) -> str:
         "**Data gap:** no CPS field work was conducted in October 2025 "
         "(2025 federal government shutdown), so every monthly series is "
         "missing that month. Gaps are left as-is, never interpolated.\n\n"
-        "**New in this release:** Added monthly average weekly hours worked "
-        "for men and women in nonagricultural industries (BLS LNS12032194, "
-        "LNS12032195), covering1948-2026."
+        "**New in this release:** Added prime-age participation and sector "
+        "headcount/wage comparisons. Weekly-hours values are omitted because "
+        "the configured BLS series are not hours measures."
     )
 
 
@@ -1201,6 +1191,74 @@ def _participation_section(stats: dict) -> str:
         f"{women['change_since_first']:.1f} pp from {women['first']:.1f}%. "
         f"Total participation is {abs(total['change_since_peak']):.1f} pp "
         f"below its {total['peak_date']} peak of {total['peak']:.1f}%."
+    )
+
+
+def _report_number(value, spec: str) -> str:
+    """Format a report number, keeping missing and non-finite values explicit."""
+    if value is None or not np.isfinite(value):
+        return "n/a"
+    return format(value, spec)
+
+
+def _prime_age_section(stats: dict) -> str:
+    prime_age = stats.get("prime_age", {})
+    heading = "## Prime-Age (25–54) Participation vs. Demographic Aging"
+    if prime_age.get("status") == "unavailable":
+        missing = ", ".join(prime_age.get("missing_columns", []))
+        return f"{heading}\n\nPrime-age series unavailable: {missing}."
+
+    levels = [
+        ("Overall 16+", stats["rates"]["total"]),
+        ("Prime-age total", prime_age["levels"]["total"]),
+        ("Prime-age men", prime_age["levels"]["men"]),
+        ("Prime-age women", prime_age["levels"]["women"]),
+    ]
+    level_rows = [
+        "| Group | First | Peak | Latest |",
+        "|---|---|---|---|",
+    ]
+    for label, values in levels:
+        level_rows.append(
+            f"| {label} | {_report_number(values['first'], '.1f')}% "
+            f"({values['first_date']}) | {_report_number(values['peak'], '.1f')}% "
+            f"({values['peak_date']}) | {_report_number(values['latest'], '.1f')}% "
+            f"({values['latest_date']}) |"
+        )
+
+    slope_rows = [
+        "| Period | Overall 16+ | Prime-age total | Prime-age men | Prime-age women |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for label, _, _ in REGIMES:
+        aggregate_slope = stats["regimes"][label]["rate_total"]["slope_pp_per_year"]
+        prime_regime = prime_age["regimes"][label]
+        slopes = [
+            aggregate_slope,
+            prime_regime["total"]["slope_pp_per_year"],
+            prime_regime["men"]["slope_pp_per_year"],
+            prime_regime["women"]["slope_pp_per_year"],
+        ]
+        slope_rows.append(
+            f"| {label} | "
+            + " | ".join(f"{_report_number(value, '+.3f')} pp/yr" for value in slopes)
+            + " |"
+        )
+
+    drag = prime_age["demographic_drag"]
+    return (
+        f"{heading}\n\n"
+        "Participation levels (percent):\n\n"
+        + "\n".join(level_rows)
+        + "\n\nOLS trends (percentage points per year):\n\n"
+        + "\n".join(slope_rows)
+        + "\n\n"
+        f"From {drag['baseline_date']} to the latest common observation "
+        f"({drag['latest_date']}), the 16+ participation rate changed "
+        f"{_report_number(drag['aggregate_change_pp'], '+.2f')} pp and prime-age "
+        f"participation changed {_report_number(drag['prime_change_pp'], '+.2f')} pp. "
+        "The difference in declines (16+ minus prime-age) was "
+        f"{_report_number(drag['demographic_drag_pp'], '+.2f')} pp."
     )
 
 
@@ -1293,27 +1351,15 @@ def _earnings_section(stats: dict) -> str:
     )
 
 
-def _weekly_hours_section(stats: dict) -> str:
-    wh = stats["weekly_hours"]
-    rows = [
-        "| gender | first | latest | change | change (%) |",
-        "|---|---|---|---|---|",
-    ]
-    for label in ("men", "women", "total"):
-        if label in wh["series"]:
-            s = wh["series"][label]
-            rows.append(
-                f"| {label.capitalize()} | ${s['first']:.0f} | ${s['latest']:.0f} | "
-                f"{s['change']:+.0f} | {s['change_pct']:+.1f}% |"
-            )
-    if "hours_ratio_men_women" in wh["ratios"]:
-        ratio = wh["ratios"]["hours_ratio_men_women"]
-        rows.append(
-            f"| **Hours ratio (M/W)** | {ratio['first']:.2f} | {ratio['latest']:.2f} | "
-            f"{ratio['change']:+.3f} | slope {ratio['slope_pp_per_year']:+.3f} pp/yr |"
-        )
-
-    return "## Average Weekly Hours Worked\n\n" + "\n".join(rows) + "\n\n"
+def _weekly_hours_section(_stats: dict) -> str:
+    """Expose the known weekly-hours source defect without reporting its values."""
+    return (
+        "## Average Weekly Hours Worked: Not Reported\n\n"
+        "The configured BLS series LNS12032194 and LNS12032195 are employment "
+        "levels for part-time work for economic reasons, not average weekly hours. "
+        "Their cached values are excluded from this report until valid hours series "
+        "are selected."
+    )
 
 
 def _macro_context_section(stats: dict) -> str:
@@ -1366,6 +1412,58 @@ def _macro_context_section(stats: dict) -> str:
         )
 
     return "\n\n".join(lines) + "\n"
+
+
+def _sector_wages_section(stats: dict) -> str:
+    sector_wages = stats["sector_wages"]
+    headcount_rows = [
+        "| Sector | Peak (thousands) | Latest (thousands) |",
+        "|---|---:|---:|",
+    ]
+    for sector in ("manufacturing", "construction", "agriculture"):
+        values = sector_wages["headcount_dynamics"][sector]
+        headcount_rows.append(
+            f"| {sector.capitalize()} | "
+            f"{_report_number(values['peak_headcount'], ',.1f')} ({values['peak_date']}) | "
+            f"{_report_number(values['latest_headcount'], ',.1f')} "
+            f"({values['latest_date']}) |"
+        )
+
+    wage_rows = [
+        "| Sector | First real hourly wage | Latest real hourly wage | Total change vs. CPI-U |",
+        "|---|---:|---:|---:|",
+    ]
+    for sector in ("construction", "manufacturing"):
+        values = sector_wages["real_wage_growth"][sector]
+        wage_rows.append(
+            f"| {sector.capitalize()} | "
+            f"${_report_number(values['first'], '.2f')} ({values['first_date']}) | "
+            f"${_report_number(values['latest'], '.2f')} ({values['latest_date']}) | "
+            f"{_report_number(values['change_pct'], '+.2f')}% |"
+        )
+
+    ratio_rows = [
+        "| Sector | Peak ratio to private AHE | Current ratio to private AHE |",
+        "|---|---:|---:|",
+    ]
+    for sector in ("construction", "manufacturing"):
+        values = sector_wages["wage_compression_ratios"][sector]
+        ratio_rows.append(
+            f"| {sector.capitalize()} | "
+            f"{_report_number(values['peak_ratio'], '.2f')}% ({values['peak_date']}) | "
+            f"{_report_number(values['current_ratio'], '.2f')}% "
+            f"({values['current_date']}) |"
+        )
+
+    return (
+        "## Sector Headcount & Physical Labor Wage Dynamics\n\n"
+        "Headcount levels (thousands of persons):\n\n"
+        + "\n".join(headcount_rows)
+        + "\n\nReal hourly wages, adjusted by CPI-U:\n\n"
+        + "\n".join(wage_rows)
+        + "\n\nSector wage as a percentage of private-sector average hourly earnings:\n\n"
+        + "\n".join(ratio_rows)
+    )
 
 
 def _counts_section(stats: dict) -> str:
@@ -1434,12 +1532,13 @@ def _caveats_section() -> str:
         "- **Correlation is not causation.** All statistics are descriptive.\n"
         "- **October 2025 is missing** from every CPS series (shutdown). No "
         "interpolation is applied.\n"
-        "- Participation rates are seasonally adjusted; BLS weekly hours are "
-        "not seasonally adjusted.\n"
-        "- BLS weekly hours cover **nonagricultural industries, 16+ years** "
-        "and are not limited to full-time workers.\n"
-        "- BLS series LNS12032194 (men) and LNS12032195 (women) are "
-        "monthly estimates of average hours worked at work."
+        "- Participation rates are seasonally adjusted.\n"
+        "- Prime-age sex-specific LFPR uses BLS observations fetched in bounded "
+        "year windows; missing observations remain missing.\n"
+        "- BLS weekly-hours figures are omitted: LNS12032194/195 are employment "
+        "levels for part-time work for economic reasons, not hours.\n"
+        "- The shift-share decomposition is omitted from reported results because "
+        "its between-group and age-group terms are currently invalid."
     )
 
 

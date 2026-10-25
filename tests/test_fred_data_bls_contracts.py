@@ -40,12 +40,15 @@ class _Response:
 def _bls_payload(sid: str = BLS_SID) -> str:
     return json.dumps(
         {
-            "series": [
-                {
-                    "seriesID": sid,
-                    "data": [{"year": "2020", "period": "M01", "value": "1.5"}],
-                }
-            ]
+            "status": "REQUEST_SUCCEEDED",
+            "Results": {
+                "series": [
+                    {
+                        "seriesID": sid,
+                        "data": [{"year": "2020", "period": "M01", "value": "1.5"}],
+                    }
+                ]
+            },
         }
     )
 
@@ -65,9 +68,10 @@ def test_corrupt_bls_cache_falls_back_to_redownload(fake_get):
 
     series = fred_data.fetch_bls_series(BLS_SID)
 
-    assert list(series.to_numpy()) == [1.5]
-    assert len(fake_get.calls) == 1
-    assert (fred_data.CACHE_DIR / f"{BLS_SID}.json").read_text(encoding="utf-8") == new
+    assert list(series.to_numpy()) == [1.5] * len(fake_get.calls)
+    assert len(fake_get.calls) > 1
+    cached = (fred_data.CACHE_DIR / f"{BLS_SID}.json").read_text(encoding="utf-8")
+    assert fred_data._parse_bls_json(cached, BLS_SID).equals(series)
 
 
 def test_bls_api_key_is_added_to_payload(fake_get):
@@ -75,9 +79,9 @@ def test_bls_api_key_is_added_to_payload(fake_get):
 
     fred_data.fetch_bls_series(BLS_SID, api_key="secret-key")
 
-    payload = fake_get.calls[0]["kwargs"]["json"]
-    assert payload["apikey"] == "secret-key"
-    assert payload["seriesid"] == [BLS_SID]
+    payloads = [call["kwargs"]["json"] for call in fake_get.calls]
+    assert all(payload["apikey"] == "secret-key" for payload in payloads)
+    assert all(payload["seriesid"] == [BLS_SID] for payload in payloads)
 
 
 @pytest.mark.parametrize("status", [404, 429, 500])

@@ -127,22 +127,48 @@ def fetch_bls_series(
         except FetchError:
             pass  # corrupt/truncated cache: fall through to re-download
 
-    payload = {
-        "seriesid": [sid],
-        "startyear": "1948",
-        "endyear": str(datetime.now(UTC).year),
-        "format": "json",
-    }
-    if api_key:
-        payload["apikey"] = api_key
+    end_year = datetime.now(UTC).year
+    years_per_request = 20 if api_key else 10
+    records: list[dict] = []
+    for start_year in range(1948, end_year + 1, years_per_request):
+        chunk_end_year = min(start_year + years_per_request - 1, end_year)
+        payload = {
+            "seriesid": [sid],
+            "startyear": str(start_year),
+            "endyear": str(chunk_end_year),
+            "format": "json",
+        }
+        if api_key:
+            payload["apikey"] = api_key
 
-    response = requests.post(BLS_API_URL, json=payload, timeout=REQUEST_TIMEOUT_SECONDS)
-    if response.status_code != 200:
-        raise FetchError(sid, f"HTTP {response.status_code}: {response.text}")
+        response = requests.post(
+            BLS_API_URL, json=payload, timeout=REQUEST_TIMEOUT_SECONDS
+        )
+        if response.status_code != 200:
+            raise FetchError(sid, f"HTTP {response.status_code}: {response.text}")
+        try:
+            response_data = json.loads(response.text)
+        except json.JSONDecodeError as exc:
+            raise FetchError(sid, f"unparseable response: {exc}") from exc
 
-    series = _parse_bls_json(response.text, sid)
+        if not isinstance(response_data, dict):
+            raise FetchError(sid, "unexpected response shape (expected an object)")
+        if response_data.get("status") != "REQUEST_SUCCEEDED":
+            messages = response_data.get("message", [])
+            if not isinstance(messages, list):
+                messages = [messages]
+            message = "; ".join(str(item) for item in messages)
+            raise FetchError(sid, f"BLS API request failed: {message}")
+        results = response_data.get("Results")
+        series_data = results.get("series", []) if isinstance(results, dict) else []
+        if not series_data or not isinstance(series_data[0].get("data"), list):
+            raise FetchError(sid, "no series data in response")
+        records.extend(series_data[0]["data"])
+
+    cached_response = json.dumps({"series": [{"seriesID": sid, "data": records}]})
+    series = _parse_bls_json(cached_response, sid)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path.write_text(response.text, encoding="utf-8")
+    path.write_text(cached_response, encoding="utf-8")
     return series
 
 

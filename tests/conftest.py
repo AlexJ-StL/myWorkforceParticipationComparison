@@ -66,7 +66,7 @@ MONTHLY_GAPPED = (
     "LNU00000012",
     "LNU00000060",
     "LNU00024230",
-    "LNU02032189",
+    "LNU02034560",
 )
 
 
@@ -211,7 +211,7 @@ def _build_monthly() -> dict[str, pd.Series]:
         "CES2000000008": construction_wage,
         "MANEMP": manufacturing_employment,
         "CES3000000008": manufacturing_wage,
-        "LNU02032189": agriculture_employment,
+        "LNU02034560": agriculture_employment,
     }
     out = {
         sid: pd.Series(values, index=index, name=sid) for sid, values in series.items()
