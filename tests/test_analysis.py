@@ -2207,6 +2207,7 @@ def test_sector_wages_section_renders_headcounts_real_growth_and_ratios(render_s
     assert "| Manufacturing | $15.00 (1964-01) | $18.00 (2026-09) | +20.00% |" in text
     assert "| Construction | 110.00% (1970-01) | 95.00% (2026-09) |" in text
     assert "| Manufacturing | 105.00% (1980-01) | 90.00% (2026-09) |" in text
+    assert "### Methodological Note: Establishment Survey Coverage & Wage Disconnect" in text
 
 
 @pytest.mark.parametrize("value", [None, np.nan, np.inf, -np.inf])

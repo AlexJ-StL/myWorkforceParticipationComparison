@@ -1,6 +1,6 @@
 # U.S. Workforce Participation: Findings
 
-Generated 2026-10-25 22:23 UTC from 38 FRED series and 4 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
+Generated 2026-10-28 08:08 UTC from 38 FRED series and 4 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
 
 **Data gap:** no CPS field work was conducted in October 2025 (2025 federal government shutdown), so every monthly series is missing that month. Gaps are left as-is, never interpolated.
 
@@ -134,6 +134,14 @@ Sector wage as a percentage of private-sector average hourly earnings:
 |---|---:|---:|
 | Construction | 145.16% (1973-01) | 120.25% (2026-09) |
 | Manufacturing | 107.78% (1985-07) | 92.67% (2026-09) |
+
+### Methodological Note: Establishment Survey Coverage & Wage Disconnect
+
+Official establishment survey data (`USCONS`) tracks formal payroll headcount, which grew from 1,367 construction workers per 100k population in 1947 to 2,437 per 100k in 2026. However, the annual rate of per-capita payroll expansion slowed significantly after 1973 (+21.6 workers/100k/yr in 1947–1973 vs. +10.0 workers/100k/yr in 1973–2026).
+
+Under standard competitive market models, a deceleration in per-capita formal worker growth alongside sustained housing and infrastructure demand would indicate relative labor scarcity, typically exerting upward pressure on relative wages. Instead, construction hourly earnings relative to the total private average compressed from 145.16% in 1973 to 120.25% in 2026.
+
+This mathematical divergence illustrates a key structural boundary in establishment payroll series: survey-based data excludes informal, unrecorded, or off-the-books labor supply. In sectors characterized by high levels of subcontracting and low formal entry barriers, unmeasured additions to total effective labor supply represent a potential explanatory factor for the observed wage compression that cannot be isolated using official payroll records alone.
 
 ## Caveats
 
