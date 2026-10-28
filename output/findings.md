@@ -1,6 +1,6 @@
 # U.S. Workforce Participation: Findings
 
-Generated 2026-10-25 22:10 UTC from 38 FRED series and 4 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
+Generated 2026-10-25 22:23 UTC from 38 FRED series and 4 BLS series (1939-01..2026-09 monthly, 1966-01..2026-04 quarterly earnings).
 
 **Data gap:** no CPS field work was conducted in October 2025 (2025 federal government shutdown), so every monthly series is missing that month. Gaps are left as-is, never interpolated.
 
